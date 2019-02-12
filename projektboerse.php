@@ -14,6 +14,7 @@ define( 'DEFAULT_KEYCLOAK_API_URL' , 'http://localhost:8180/auth/realms/pboerse/
 $GLOBALS['disabled'] = "";
 
 
+// due to a big bug in gutenberg and metaboxes, gutenberg is diabled in this plugin:
     // disable gutenberg for posts
         add_filter('use_block_editor_for_post', '__return_false', 10);
 
@@ -23,21 +24,21 @@ $GLOBALS['disabled'] = "";
 
 // ---------------------- TinyMCE Custom Button Section --------------------------------
 
+// I decided to replace the editor-toggle-button for a metabox-checkbox. But for future reference I keep the code:
 
-add_action( 'init', 'pb_buttons' );
-function pb_buttons() {
-    add_filter( "mce_external_plugins", "pboerse_add_button" );
-    add_filter( 'mce_buttons', 'pboerse_register_button' );
-}
-function pboerse_add_button( $plugin_array ) {
-    $plugin_array['pboerse'] = plugin_dir_url(__FILE__) . '/pb_button.js';
-    return $plugin_array;
-}
-function pboerse_register_button( $buttons ) {
-    array_push( $buttons, 'pb_button1' ); //
-    return $buttons;
-}
-
+//add_action( 'init', 'pb_buttons' );
+//function pb_buttons() {
+//    add_filter( "mce_external_plugins", "pboerse_add_button" );
+//    add_filter( 'mce_buttons', 'pboerse_register_button' );
+//}
+//function pboerse_add_button( $plugin_array ) {
+//    $plugin_array['pboerse'] = plugin_dir_url(__FILE__) . '/pb_button.js';
+//    return $plugin_array;
+//}
+//function pboerse_register_button( $buttons ) {
+//    array_push( $buttons, 'pb_button1' ); //
+//    return $buttons;
+//}
 
 // ------------------------ Plugin functionality ----------------------------
 
@@ -45,7 +46,15 @@ function pboerse_register_button( $buttons ) {
  * post Variable Reference: https://codex.wordpress.org/Function_Reference/$post
  */
 function post_published_api_call( $ID, $post) {
-    if(!isset($_POST['publish-to-somewhere']) || $_POST['publish-to-somewhere'] == '0') return;
+    //if(!isset($_POST['publish-to-somewhere']) || $_POST['publish-to-somewhere'] == '0') return;
+//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key0', true), "post?");
+//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key1', true), "course");
+//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key2', true), "start");
+//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key3', true), "end");
+//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key4', true), "max teilnehmer");
+//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key5', true), "tags");
+
+    if( get_post_meta($post->ID, '_pb_wporg_meta_key0', true) !== "1" ) return;
 
         $url = get_option('api_url', array('plugin_text_string' => DEFAULT_API_URL))['plugin_text_string'];
         $title = $post->post_title;
@@ -86,8 +95,122 @@ function post_published_api_call( $ID, $post) {
             keycloak_session_logout($token_response);
         }
 }
-
 add_action( 'publish_post', 'post_published_api_call', 10, 2);
+
+// Add custom metabox paragraph for THK projects on "post" and "wporg_cpt" pages
+function pb_wporg_add_custom_box()
+{
+    $screens = ['post', 'wporg_cpt'];
+    foreach ($screens as $screen) {
+        add_meta_box(
+            'studiengang_wporg_box_id',           // Unique ID
+            'THK Projektbörse: Projektdaten',  // Box title
+            'pb_custom_box_html',  // Content callback, must be of type callable
+            $screen                   // Post type
+        );
+    }
+}
+add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
+
+// HTML input fields for post metadata. Loads the last saved data!
+function pb_custom_box_html($post)
+{
+    ?>
+    <p>
+        <input type="hidden" name="pb_wporg_project_send_to_pb" id="pb_wporg_project_send_to_pb" value="0">
+        <label>
+        <input type="checkbox" name="pb_wporg_project_send_to_pb" id="pb_wporg_project_send_to_pb" value="1">
+               Kopie dieses Beitrags an Projektbörse senden?
+        </label>
+
+    </p>
+    <hr>
+    <p>
+        <?php  $value = get_post_meta($post->ID, '_pb_wporg_meta_key1', true); ?>
+        <label for="pb_wporg_field">Studiengang</label>
+        <select name="pb_wporg_field" id="pb_wporg_field" class="postbox">
+            <option value="">Bitte wählen...</option>
+            <option value="all" <?php selected($value, 'all'); ?>>- Alle -</option>
+            <option value="ai" <?php selected($value, 'ai'); ?>>Informatik</option>
+            <option value="ti" <?php selected($value, 'ti'); ?>>Technische Informatik</option>
+            <option value="wi" <?php selected($value, 'wi'); ?>>Wirtschaftsinformatik</option>
+        </select>
+    </p>
+    <p>
+        <?php   ?>
+        <label for="pb_wporg_project_start">Projektstart:</label>
+        <input type="date" name="pb_wporg_project_start" id="pb_wporg_project_start" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key2', true);  ?>">
+    </p>
+    <p>
+        <label for="pb_wporg_project_end">Projektende:</label>
+        <input type="date" name="pb_wporg_project_end" id="pb_wporg_project_end" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key3', true);  ?>">
+    </p>
+    <p>
+        <label for="pb_wporg_project_max_participants">Teilnehmerbegrenzung:</label>
+        <input type="number" name="pb_wporg_project_max_participants" id="pb_wporg_project_max_participants" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key4', true);  ?>" size="2" min="1" max="999">
+    </p>
+    <p>
+        <label for="pb_wporg_project_tags">Tags:</label>
+        <input type="text" name="pb_wporg_project_tags" id="pb_wporg_project_tags" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key5', true);  ?>" size="50">
+        (tag1, tag2, ...)
+    </p>
+    <?php
+}
+
+// save the pb-metabox data into a unique meta key
+function pb_wporg_save_postdata($post_id)
+{
+    if (array_key_exists('pb_wporg_project_send_to_pb', $_POST)) {
+        update_post_meta(
+            $post_id,
+            '_pb_wporg_meta_key0',
+            $_POST['pb_wporg_project_send_to_pb']
+        );
+    }
+
+    if (array_key_exists('pb_wporg_field', $_POST)) {
+        update_post_meta(
+            $post_id,
+            '_pb_wporg_meta_key1',
+            $_POST['pb_wporg_field']
+        );
+    }
+
+    if (array_key_exists('pb_wporg_project_start', $_POST)) {
+        update_post_meta(
+            $post_id,
+            '_pb_wporg_meta_key2',
+            $_POST['pb_wporg_project_start']
+        );
+    }
+
+    if (array_key_exists('pb_wporg_project_end', $_POST)) {
+        update_post_meta(
+            $post_id,
+            '_pb_wporg_meta_key3',
+            $_POST['pb_wporg_project_end']
+        );
+    }
+
+    if (array_key_exists('pb_wporg_project_max_participants', $_POST)) {
+        update_post_meta(
+            $post_id,
+            '_pb_wporg_meta_key4',
+            sanitize_text_field($_POST['pb_wporg_project_max_participants'])
+        );
+    }
+
+    if (array_key_exists('pb_wporg_project_tags', $_POST)) {
+        update_post_meta(
+            $post_id,
+            '_pb_wporg_meta_key5',
+            sanitize_text_field($_POST['pb_wporg_project_tags'])
+        );
+    }
+
+}
+add_action('publish_post', 'pb_wporg_save_postdata', 9);
+
 
 function wp_post_to_html($wp_post_content){
     $remove_tags = str_replace("<!-- /wp:paragraph -->","", str_replace("<!-- wp:paragraph -->","", $wp_post_content));
@@ -96,11 +219,11 @@ function wp_post_to_html($wp_post_content){
     return $remove_p;
 }
 
-// hidden input field to get the button state
-add_action( 'post_submitbox_misc_actions', 'wpse325418_my_custom_hidden_field' );
-function wpse325418_my_custom_hidden_field() {
-    echo "<input id='i-am-hidden' name='publish-to-somewhere' type='hidden' value='0' />";
-}
+// hidden input field to get the button state --> now obsolete with new checkbox in metabox
+//add_action( 'post_submitbox_misc_actions', 'wpse325418_my_custom_hidden_field' );
+//function wpse325418_my_custom_hidden_field() {
+//    echo "<input id='i-am-hidden' name='publish-to-somewhere' type='hidden' value='0' />";
+//}
 
 function extract_keycloak_access_token($response){
 
