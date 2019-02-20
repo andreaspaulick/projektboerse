@@ -51,20 +51,34 @@ function post_published_api_call( $ID, $post) {
 //    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key1', true), "course");
 //    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key2', true), "start");
 //    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key3', true), "end");
-//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key4', true), "max teilnehmer");
+//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key4', true), "max participants");
 //    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key5', true), "tags");
 
     if( get_post_meta($post->ID, '_pb_wporg_meta_key0', true) !== "1" ) return;
 
-        $url = get_option('api_url', array('plugin_text_string' => DEFAULT_API_URL))['plugin_text_string'];
+        $url = get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'];
         $title = $post->post_title;
         $content = wp_post_to_html($post->post_content);
 
+        // data for DUMMY PROJEKTBÖRSE
         $post_data = array(
             'status' => 'publish',
             'title' => $title,
-            'content' => $content
+            'content' => $content,
+            'course' => get_post_meta($post->ID, '_pb_wporg_meta_key1', true),
+            'start' => get_post_meta($post->ID, '_pb_wporg_meta_key2', true),
+            'end' => get_post_meta($post->ID, '_pb_wporg_meta_key3', true),
+            'max_party' => get_post_meta($post->ID, '_pb_wporg_meta_key4', true),
+            'tags' => wp_strip_all_tags(get_the_tag_list('',',','', $post->ID)),
+            'user_login' => wp_get_current_user()->user_login
         );
+
+        // data for Testserver Projektbörse --> https://gptest.archi-lab.io/projects
+//        $post_data = array(
+//            'status' => 'GEPLANT',
+//            'name' => $title,
+//            'description' => $content
+//        );
 
         $json_post = json_encode($post_data);
 
@@ -128,12 +142,16 @@ function pb_custom_box_html($post)
     <p>
         <?php  $value = get_post_meta($post->ID, '_pb_wporg_meta_key1', true); ?>
         <label for="pb_wporg_field">Studiengang</label>
-        <select name="pb_wporg_field" id="pb_wporg_field" class="postbox">
-            <option value="">Bitte wählen...</option>
-            <option value="all" <?php selected($value, 'all'); ?>>- Alle -</option>
-            <option value="ai" <?php selected($value, 'ai'); ?>>Informatik</option>
-            <option value="ti" <?php selected($value, 'ti'); ?>>Technische Informatik</option>
-            <option value="wi" <?php selected($value, 'wi'); ?>>Wirtschaftsinformatik</option>
+        <select name="pb_wporg_field[]" id="pb_wporg_field" class="postbox" multiple="multiple" size="10">
+            <?php
+                $data = get_pb_courses();
+                foreach($data as $item){
+            ?>
+                <option value="<?php echo strtolower($item);?>" <?php selected($value, strtolower($item)); ?>><?php echo $item; ?></option>
+
+            <?php
+                }
+            ?>
         </select>
     </p>
     <p>
@@ -148,11 +166,6 @@ function pb_custom_box_html($post)
     <p>
         <label for="pb_wporg_project_max_participants">Teilnehmerbegrenzung:</label>
         <input type="number" name="pb_wporg_project_max_participants" id="pb_wporg_project_max_participants" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key4', true);  ?>" size="2" min="1" max="999">
-    </p>
-    <p>
-        <label for="pb_wporg_project_tags">Tags:</label>
-        <input type="text" name="pb_wporg_project_tags" id="pb_wporg_project_tags" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key5', true);  ?>" size="50">
-        (tag1, tag2, ...)
     </p>
     <?php
 }
@@ -172,7 +185,7 @@ function pb_wporg_save_postdata($post_id)
         update_post_meta(
             $post_id,
             '_pb_wporg_meta_key1',
-            $_POST['pb_wporg_field']
+            implode(', ', $_POST['pb_wporg_field'])
         );
     }
 
@@ -197,14 +210,6 @@ function pb_wporg_save_postdata($post_id)
             $post_id,
             '_pb_wporg_meta_key4',
             sanitize_text_field($_POST['pb_wporg_project_max_participants'])
-        );
-    }
-
-    if (array_key_exists('pb_wporg_project_tags', $_POST)) {
-        update_post_meta(
-            $post_id,
-            '_pb_wporg_meta_key5',
-            sanitize_text_field($_POST['pb_wporg_project_tags'])
         );
     }
 
@@ -283,6 +288,37 @@ function keycloak_session_logout($keycloak_token_response) {
     ));
 }
 
+// retrieves pretty study-course-list from PB REST API
+function get_pb_courses() {
+
+    // TODO remove hardcoded URL before release:
+    //$url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/studyCourses';
+    $url = 'https://gptest.archi-lab.io/studyCourses';
+    
+    $response = wp_remote_get($url);
+    $response_body = json_decode($response['body'], TRUE);
+    if($response_body['status']===404)
+        return array("ERROR: Could not retrieve API data...");
+
+    $courses = array_column_recursive($response_body,'name');
+    $degree = array_column_recursive($response_body, 'academicDegree');
+
+    for ($i = 0; $i < count($courses); $i++) {
+        $courses[$i] = $courses[$i].' ('.$degree[$i].')';
+    }
+
+   return $courses;
+}
+
+function array_column_recursive(array $haystack, $needle) {
+    $found = [];
+    array_walk_recursive($haystack, function($value, $key) use (&$found, $needle) {
+        if ($key == $needle)
+            $found[] = $value;
+    });
+    return $found;
+}
+
 
 //  -------------------------  Options Page & Settings --------------------------------------
 
@@ -298,17 +334,10 @@ function pb_options_page_html($post_data)
         <form action="options.php" method="post">
             <?php
             // output security fields for the registered setting "pboerse"
-            settings_fields( 'pb_api' );
-            // output setting sections and their fields
-            // (sections are registered for "pboerse", each field is registered to a specific section)
-            do_settings_sections( 'pb_api' );
-            ?>
-<!--            <br />-->
-<!--            <br />-->
-            <?php
+        
 
-            settings_fields( 'token_api' );
-            do_settings_sections( 'token_api' );
+            settings_fields( 'pb_settings_input' );
+            do_settings_sections( 'pb_settings_input' );
             //submit_button( 'Speichern' );
 
             submit_button( 'Einstellungen Speichern' );
@@ -366,31 +395,31 @@ add_action('admin_init', 'plugin_admin_init');
 function plugin_admin_init()
 {
     // Path to Projektbörse API
-    register_setting('pb_api', 'api_url');
-    add_settings_section('plugin_main', 'Pfad zur API', 'plugin_section_text', 'pb_api');
-    add_settings_field('plugin_text_string', 'URL:', 'plugin_setting_string', 'pb_api', 'plugin_main');
+    register_setting('pb_settings_input', 'pb_api_url');
+    add_settings_section('plugin_main', 'Pfad zur Projektbörse API', 'plugin_section_text', 'pb_settings_input');
+    add_settings_field('pb_url', 'URL:', 'pb_api_url2432425', 'pb_settings_input', 'plugin_main');
 
     // Enable KeyCloac token request
-    register_setting('token_api', 'token_enable_checkbox');
-    add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'token_api');
-    add_settings_field('token_enable', 'Aktiviere Tokenanforderung?', 'token_enable', 'token_api', 'plugin_main_token');
+    register_setting('pb_settings_input', 'token_enable_checkbox');
+    add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'pb_settings_input');
+    add_settings_field('token_enable', 'Aktiviere Tokenanforderung?', 'token_enable', 'pb_settings_input', 'plugin_main_token');
 
     // Keycloak Access-Token-API URL
-    register_setting('token_api', 'token_api_url');
-    //add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'token_api');
-    add_settings_field('token_url', 'Keycloak Token API URL:', 'token_setting_url', 'token_api', 'plugin_main_token');
+    register_setting('pb_settings_input', 'token_api_url');
+    //add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'pb_settings_input');
+    add_settings_field('token_url', 'Keycloak Token API URL:', 'token_setting_url', 'pb_settings_input', 'plugin_main_token');
 
     // Keycloak client_id
-    register_setting('token_api', 'token_api_clientid');
-    add_settings_field('token_clientid', 'Client-ID:', 'token_setting_clientid', 'token_api', 'plugin_main_token');
+    register_setting('pb_settings_input', 'token_api_clientid');
+    add_settings_field('token_clientid', 'Client-ID:', 'token_setting_clientid', 'pb_settings_input', 'plugin_main_token');
 
     // Keycloak username
-    register_setting('token_api', 'token_api_username');
-    add_settings_field('token_username', 'Benutzername:', 'token_setting_username', 'token_api', 'plugin_main_token');
+    register_setting('pb_settings_input', 'token_api_username');
+    add_settings_field('token_username', 'Benutzername:', 'token_setting_username', 'pb_settings_input', 'plugin_main_token');
 
     // Keycloak password
-    register_setting('token_api', 'token_api_password');
-    add_settings_field('token_password', 'Passwort:', 'token_setting_password', 'token_api', 'plugin_main_token');
+    register_setting('pb_settings_input', 'token_api_password');
+    add_settings_field('token_password', 'Passwort:', 'token_setting_password', 'pb_settings_input', 'plugin_main_token');
 }
 
 function plugin_section_text() {
@@ -401,10 +430,10 @@ function token_section_text() {
     echo '<p>Ist der Projektbörse-Server durch Keycloak geschützt, so können Sie hier die Zugangsdaten des Keycloak Realms eingeben um in der Lage zu sein, Beiträge im geschützten Bereich der Projektbörse verfassen zu können</p>';
 }
 
-function plugin_setting_string() {
-    //delete_option('api_url');
-    $options = get_option('api_url', array('plugin_text_string' => DEFAULT_API_URL));
-    echo "<input id='plugin_text_string' name='api_url[plugin_text_string]' size='80' type='text' value='{$options['plugin_text_string']}' />";
+function pb_api_url2432425() {
+    //delete_option('pb_api_url');
+    $options = get_option('pb_api_url', array('pb_url' => DEFAULT_API_URL));
+    echo "<input id='pb_url' name='pb_api_url[pb_url]' size='80' type='text' value='{$options['pb_url']}' />";
 
 }
 
