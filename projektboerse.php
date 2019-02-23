@@ -14,12 +14,11 @@ define( 'DEFAULT_KEYCLOAK_API_URL' , 'http://localhost:8180/auth/realms/pboerse/
 $GLOBALS['disabled'] = "";
 
 
-// due to a big bug in gutenberg and metaboxes, gutenberg is diabled in this plugin:
-    // disable gutenberg for posts
-        add_filter('use_block_editor_for_post', '__return_false', 10);
-
-    // disable gutenberg for post types
-        add_filter('use_block_editor_for_post_type', '__return_false', 10);
+//    // disable gutenberg for posts
+//        add_filter('use_block_editor_for_post', '__return_false', 10);
+//
+//    // disable gutenberg for post types
+//        add_filter('use_block_editor_for_post_type', '__return_false', 10);
 
 
 // ---------------------- TinyMCE Custom Button Section --------------------------------
@@ -46,13 +45,6 @@ $GLOBALS['disabled'] = "";
  * post Variable Reference: https://codex.wordpress.org/Function_Reference/$post
  */
 function post_published_api_call( $ID, $post) {
-    //if(!isset($_POST['publish-to-somewhere']) || $_POST['publish-to-somewhere'] == '0') return;
-//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key0', true), "post?");
-//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key1', true), "course");
-//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key2', true), "start");
-//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key3', true), "end");
-//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key4', true), "max participants");
-//    my_log_file(get_post_meta($post->ID, '_pb_wporg_meta_key5', true), "tags");
 
     if( get_post_meta($post->ID, '_pb_wporg_meta_key0', true) !== "1" ) return;
 
@@ -129,26 +121,22 @@ add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 // HTML input fields for post metadata. Loads the last saved data!
 function pb_custom_box_html($post)
 {
+    $meta = get_post_meta( $post->ID );
+    $checkbox_value = ( isset( $meta['checkbox_value'][0] ) &&  '1' === $meta['checkbox_value'][0] ) ? 1 : 0;
     ?>
     <p>
-        <input type="hidden" name="pb_wporg_project_send_to_pb" id="pb_wporg_project_send_to_pb" value="0">
-        <label>
-        <input type="checkbox" name="pb_wporg_project_send_to_pb" id="pb_wporg_project_send_to_pb" value="1">
-               Kopie dieses Beitrags an Projektbörse senden?
-        </label>
-
+        <label><input type="checkbox" name="checkbox_value" value="1" <?php checked( $checkbox_value, 1 ); ?> />Kopie dieses Beitrags an Projektbörse senden?</label>
     </p>
     <hr>
     <p>
         <?php  $value = get_post_meta($post->ID, '_pb_wporg_meta_key1', true); ?>
-        <label for="pb_wporg_field">Studiengang</label>
-        <select name="pb_wporg_field[]" id="pb_wporg_field" class="postbox" multiple="multiple" size="10">
+        <label for="pb_wporg_course">Studiengang</label>
+        <select name="pb_wporg_course[]" id="pb_wporg_course" class="postbox" multiple="multiple" size="10">
             <?php
                 $data = get_pb_courses();
                 foreach($data as $item){
             ?>
-                <option value="<?php echo strtolower($item);?>" <?php selected($value, strtolower($item)); ?>><?php echo $item; ?></option>
-
+                <option value="<?php echo strtolower($item);?>"><?php echo $item; ?></option>
             <?php
                 }
             ?>
@@ -173,22 +161,21 @@ function pb_custom_box_html($post)
 // save the pb-metabox data into a unique meta key
 function pb_wporg_save_postdata($post_id)
 {
-    if (array_key_exists('pb_wporg_project_send_to_pb', $_POST)) {
-        update_post_meta(
-            $post_id,
-            '_pb_wporg_meta_key0',
-            $_POST['pb_wporg_project_send_to_pb']
-        );
-    }
 
-    if (array_key_exists('pb_wporg_field', $_POST)) {
+    // checkbox
+    $checkbox_value = ( isset( $_POST['checkbox_value'] ) && '1' === $_POST['checkbox_value'] ) ? 1 : 0; // Input var okay.
+    update_post_meta( $post_id, '_pb_wporg_meta_key0', esc_attr( $checkbox_value ) );
+
+    // study course
+    if (array_key_exists('pb_wporg_course', $_POST)) {
         update_post_meta(
             $post_id,
             '_pb_wporg_meta_key1',
-            implode(', ', $_POST['pb_wporg_field'])
+            implode(', ', $_POST['pb_wporg_course']) // convert all tags
         );
     }
 
+    // project start
     if (array_key_exists('pb_wporg_project_start', $_POST)) {
         update_post_meta(
             $post_id,
@@ -197,6 +184,7 @@ function pb_wporg_save_postdata($post_id)
         );
     }
 
+    // project end
     if (array_key_exists('pb_wporg_project_end', $_POST)) {
         update_post_meta(
             $post_id,
@@ -205,6 +193,7 @@ function pb_wporg_save_postdata($post_id)
         );
     }
 
+    // project maximum participants
     if (array_key_exists('pb_wporg_project_max_participants', $_POST)) {
         update_post_meta(
             $post_id,
@@ -294,7 +283,7 @@ function get_pb_courses() {
     // TODO remove hardcoded URL before release:
     //$url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/studyCourses';
     $url = 'https://gptest.archi-lab.io/studyCourses';
-    
+
     $response = wp_remote_get($url);
     $response_body = json_decode($response['body'], TRUE);
     if($response_body['status']===404)
