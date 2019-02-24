@@ -129,7 +129,6 @@ function pb_custom_box_html($post)
     </p>
     <hr>
     <p>
-        <?php  $value = get_post_meta($post->ID, '_pb_wporg_meta_key1', true); ?>
         <label for="pb_wporg_course">Studiengang</label>
         <select name="pb_wporg_course[]" id="pb_wporg_course" class="postbox" multiple="multiple" size="10">
             <?php
