@@ -130,12 +130,12 @@ function pb_custom_box_html($post)
     <hr>
     <p>
         <label for="pb_wporg_course">Studiengang</label>
-        <select name="pb_wporg_course[]" id="pb_wporg_course" class="postbox" multiple="multiple" size="10">
+        <select name="pb_wporg_course[]" id="pb_wporg_course" class="postbox" multiple="multiple" size="6">
             <?php
                 $data = get_pb_courses();
-                foreach($data as $item){
+                foreach($data as $key => $item){
             ?>
-                <option value="<?php echo strtolower($item);?>"><?php echo $item; ?></option>
+                <option value="<?php echo $key;?>"><?php echo $item; ?></option>
             <?php
                 }
             ?>
@@ -170,7 +170,7 @@ function pb_wporg_save_postdata($post_id)
         update_post_meta(
             $post_id,
             '_pb_wporg_meta_key1',
-            implode(', ', $_POST['pb_wporg_course']) // convert all tags
+            implode(', ', $_POST['pb_wporg_course']) // array to single string
         );
     }
 
@@ -283,16 +283,27 @@ function get_pb_courses() {
     //$url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/studyCourses';
     $url = 'https://gptest.archi-lab.io/studyCourses';
 
-    $response = wp_remote_get($url);
-    $response_body = json_decode($response['body'], TRUE);
-    if($response_body['status']===404)
+    $response = wp_remote_get($url); // get study courses from PB API
+    $response_body = json_decode($response['body'], TRUE); // we only need the body of the response
+    if($response_body['status']===404) // if status=404 the api was not found
         return array("ERROR: Could not retrieve API data...");
 
-    $courses = array_column_recursive($response_body,'name');
-    $degree = array_column_recursive($response_body, 'academicDegree');
+    $courses = array_column_recursive($response_body,'name'); // go get all study courses
+    $degree = array_column_recursive($response_body, 'academicDegree'); // get the academic degree of all couses
 
+    $id = array();
+
+    // hacky version to get the ID of each course (which in fact is the self href in the projektbörse api)
+    for ($i = 0; $i < count($courses); $i++) {
+        array_push($id, $response_body['_embedded']['studyCourses'][$i]['_links']['self']['href']);
+    }
+
+    // we substitute the index number-key (0, 1, 2, ...) of the course array with the "href-ID" of the API
     for ($i = 0; $i < count($courses); $i++) {
         $courses[$i] = $courses[$i].' ('.$degree[$i].')';
+
+        $courses[$id[$i]] = $courses[$i];
+        unset($courses[$i]);
     }
 
    return $courses;
