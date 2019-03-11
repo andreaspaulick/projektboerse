@@ -9,35 +9,11 @@
 */
 
 defined( 'ABSPATH' ) or exit;
-define( 'DEFAULT_API_URL' , 'http://localhost:8045/posts/jsonadd' );
-define( 'DEFAULT_KEYCLOAK_API_URL' , 'http://localhost:8180/auth/realms/pboerse/protocol/openid-connect/token' );
-$GLOBALS['disabled'] = "";
+define( 'DEFAULT_API_URL' , 'http://localhost:8045/posts/jsonadd' ); // default link to the PB API
+define( 'DEFAULT_KEYCLOAK_API_URL' , 'http://localhost:8180/auth/realms/pboerse/protocol/openid-connect/token' ); // default link to the keycloak API
+define( 'USE_LOCAL_PB' , TRUE ); // here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
 
-
-//    // disable gutenberg for posts
-//        add_filter('use_block_editor_for_post', '__return_false', 10);
-//
-//    // disable gutenberg for post types
-//        add_filter('use_block_editor_for_post_type', '__return_false', 10);
-
-
-// ---------------------- TinyMCE Custom Button Section --------------------------------
-
-// I decided to replace the editor-toggle-button for a metabox-checkbox. But for future reference I keep the code:
-
-//add_action( 'init', 'pb_buttons' );
-//function pb_buttons() {
-//    add_filter( "mce_external_plugins", "pboerse_add_button" );
-//    add_filter( 'mce_buttons', 'pboerse_register_button' );
-//}
-//function pboerse_add_button( $plugin_array ) {
-//    $plugin_array['pboerse'] = plugin_dir_url(__FILE__) . '/pb_button.js';
-//    return $plugin_array;
-//}
-//function pboerse_register_button( $buttons ) {
-//    array_push( $buttons, 'pb_button1' ); //
-//    return $buttons;
-//}
+include 'pb_options.php';
 
 // ------------------------ Plugin functionality ----------------------------
 
@@ -46,31 +22,42 @@ $GLOBALS['disabled'] = "";
  */
 function post_published_api_call( $ID, $post) {
 
-    if( get_post_meta($post->ID, '_pb_wporg_meta_key0', true) !== "1" ) return;
+    if( get_post_meta($post->ID, '_pb_wporg_meta_key0', true) !== "1" ) return; // return (do nothing) if checkbox "also send to pb" is not checked
 
-        $url = get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'];
+        if(USE_LOCAL_PB === FALSE) {
+            $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
+        }
+        else {
+            $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/posts/jsonadd'; // add json-consuming ressource to url. Strip last slash if present
+        }
+
         $title = $post->post_title;
-        $content = wp_post_to_html($post->post_content);
+        $content = wp_strip_all_tags($post->post_content); // at the moment all tags are stripped (images won't be transferred)
 
-        // data for DUMMY PROJEKTBÖRSE
-        $post_data = array(
-            'status' => 'publish',
-            'title' => $title,
-            'content' => $content,
-            'course' => get_post_meta($post->ID, '_pb_wporg_meta_key1', true),
-            'start' => get_post_meta($post->ID, '_pb_wporg_meta_key2', true),
-            'end' => get_post_meta($post->ID, '_pb_wporg_meta_key3', true),
-            'max_party' => get_post_meta($post->ID, '_pb_wporg_meta_key4', true),
-            'tags' => wp_strip_all_tags(get_the_tag_list('',',','', $post->ID)),
-            'user_login' => wp_get_current_user()->user_login
-        );
+        // data for local DUMMY PROJEKTBÖRSE
+        if(USE_LOCAL_PB === TRUE) {
+            $post_data = array(
+                'status' => 'publish',
+                'title' => $title,
+                'content' => $content,
+                'course' => get_post_meta($post->ID, '_pb_wporg_meta_key1', true),
+                'start' => get_post_meta($post->ID, '_pb_wporg_meta_key2', true),
+                'end' => get_post_meta($post->ID, '_pb_wporg_meta_key3', true),
+                'max_party' => get_post_meta($post->ID, '_pb_wporg_meta_key4', true),
+                'tags' => wp_strip_all_tags(get_the_tag_list('', ',', '', $post->ID)),
+                'user_login' => wp_get_current_user()->user_login
+            );
+        }
+        else {
+            // data for Testserver Projektbörse --> https://gptest.archi-lab.io/projects
+            $post_data = array(
+                'status' => 'GEPLANT',
+                'name' => $title,
+                'description' => $content
+            );
+        }
 
-        // data for Testserver Projektbörse --> https://gptest.archi-lab.io/projects
-//        $post_data = array(
-//            'status' => 'GEPLANT',
-//            'name' => $title,
-//            'description' => $content
-//        );
+
 
         $json_post = json_encode($post_data);
 
@@ -132,7 +119,7 @@ function pb_custom_box_html($post)
         <label for="pb_wporg_course">Studiengang</label>
         <select name="pb_wporg_course[]" id="pb_wporg_course" class="postbox" multiple="multiple" size="6">
             <?php
-                $data = get_pb_courses();
+                $data = get_pb_courses();  // get all the courses via REST-API
                 foreach($data as $key => $item){
             ?>
                 <option value="<?php echo $key;?>"><?php echo $item; ?></option>
@@ -212,20 +199,14 @@ function wp_post_to_html($wp_post_content){
     return $remove_p;
 }
 
-// hidden input field to get the button state --> now obsolete with new checkbox in metabox
-//add_action( 'post_submitbox_misc_actions', 'wpse325418_my_custom_hidden_field' );
-//function wpse325418_my_custom_hidden_field() {
-//    echo "<input id='i-am-hidden' name='publish-to-somewhere' type='hidden' value='0' />";
-//}
-
 function extract_keycloak_access_token($response){
 
     if($response==="TOKEN_REQUEST_ERROR")
         return $response;
 
-    $kc_response = json_decode($response['body']);
+    $kc_response = json_decode($response['body']); // JSON to array
 
-    return $kc_response->access_token;
+    return $kc_response->access_token; // get access-token
 }
 
 function get_keycloak_token_response(){
@@ -235,6 +216,7 @@ function get_keycloak_token_response(){
     $kc_username = get_option('token_api_username')['token_username'];
     $kc_password = get_option('token_api_password')['token_password'];
 
+    // if URL does not start with 'http' return error message
     if(strpos($kc_url,"http" )===false)
         return "URL_MALFORMED";
 
@@ -263,9 +245,9 @@ function keycloak_session_logout($keycloak_token_response) {
         return $keycloak_token_response;
 
     $kc_clientid = get_option('token_api_clientid')['token_clientid'];
-    $refresh_token = json_decode($keycloak_token_response['body'])->refresh_token;
+    $refresh_token = json_decode($keycloak_token_response['body'])->refresh_token;  // get refresh-token
 
-    $url = preg_replace("/\btoken$/","logout", get_option('token_api_url', array('token_url' => DEFAULT_KEYCLOAK_API_URL))['token_url']);
+    $url = preg_replace("/\btoken$/","logout", get_option('token_api_url', array('token_url' => DEFAULT_KEYCLOAK_API_URL))['token_url']);  // replace "token" endpoint with "logout" endpoint from Token-URL
 
     $data = wp_remote_post($url, array(
         'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded'),
@@ -293,15 +275,16 @@ function get_pb_courses() {
 
     $id = array();
 
-    // hacky version to get the ID of each course (which in fact is the self href in the projektbörse api)
+    // dirty implementation to get the ID of each course (which in fact is the self href in the projektbörse api)
     for ($i = 0; $i < count($courses); $i++) {
         array_push($id, $response_body['_embedded']['studyCourses'][$i]['_links']['self']['href']);
     }
 
-    // we substitute the index number-key (0, 1, 2, ...) of the course array with the "href-ID" of the API
+    // we substitute the index number-key (0, 1, 2, ...) of the course array with the "href-ID" of the API as the key
     for ($i = 0; $i < count($courses); $i++) {
-        $courses[$i] = $courses[$i].' ('.$degree[$i].')';
+        $courses[$i] = $courses[$i].' ('.$degree[$i].')'; // course name + academic degree = new full course name
 
+        // key substitution:
         $courses[$id[$i]] = $courses[$i];
         unset($courses[$i]);
     }
@@ -321,160 +304,7 @@ function array_column_recursive(array $haystack, $needle) {
 
 //  -------------------------  Options Page & Settings --------------------------------------
 
-function pb_options_page_html($post_data)
-{
-    // check user capabilities
-    if (!current_user_can('manage_options')) {
-        return;
-    }
-    ?>
-    <div>
-        <h1><?= esc_html(get_admin_page_title()); ?></h1>
-        <form action="options.php" method="post">
-            <?php
-            // output security fields for the registered setting "pboerse"
-        
 
-            settings_fields( 'pb_settings_input' );
-            do_settings_sections( 'pb_settings_input' );
-            //submit_button( 'Speichern' );
-
-            submit_button( 'Einstellungen Speichern' );
-            //my_log_file(get_option('token_enable_checkbox')['token_enable'] , 'aktiv?');
-            ?>
-        </form>
-        <form action="<?php echo admin_url( 'admin-post.php' ); ?>" onsubmit="target_popup(this)">
-            <input type="hidden" name="action" value="tokencheck534547">
-            <?php submit_button( 'Teste Tokenanforderung', 'secondary', "" ,false ); ?>
-        </form>
-        <script>
-            function target_popup(form) {
-                window.open('', 'formpopup', 'width=400,height=400,resizeable,scrollbars');
-                form.target = 'formpopup';
-            }
-        </script>
-    </div>
-    <?php
-}
-
-add_action( 'admin_post_tokencheck534547', 'tokencheck534547_test' );
-
-function tokencheck534547_test() {
-
-    $keycloak_token_response = get_keycloak_token_response();
-
-    if($keycloak_token_response==="TOKEN_REQUEST_ERROR")
-        echo    "TOKEN_REQUEST_ERROR<br><br>
-                Es konnte kein Token angefordert werden.<br><br>
-                Stellen Sie sicher, dass die Einstellungen vorher gespeichert wurden und überprüfen Sie die Eingaben!";
-    else if ($keycloak_token_response==="URL_MALFORMED")
-        echo "MALFORMED_TOKEN_URL";
-    else {
-        echo "ERFOLG!<br><br>Keycloak Access Token erfolgreich erhalten.";
-
-        //logout session
-        keycloak_session_logout($keycloak_token_response);
-    }
-}
-
-function pb_options_page()
-{
-    add_submenu_page(
-        'options-general.php',
-        'TH Köln Projektbörse Einstellungen',
-        'THK Projektbörse',
-        'manage_options',
-        'pboerse',
-        'pb_options_page_html'
-    );
-}
-add_action('admin_menu', 'pb_options_page');
-
-add_action('admin_init', 'plugin_admin_init');
-function plugin_admin_init()
-{
-    // Path to Projektbörse API
-    register_setting('pb_settings_input', 'pb_api_url');
-    add_settings_section('plugin_main', 'Pfad zur Projektbörse API', 'plugin_section_text', 'pb_settings_input');
-    add_settings_field('pb_url', 'URL:', 'pb_api_url2432425', 'pb_settings_input', 'plugin_main');
-
-    // Enable KeyCloac token request
-    register_setting('pb_settings_input', 'token_enable_checkbox');
-    add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'pb_settings_input');
-    add_settings_field('token_enable', 'Aktiviere Tokenanforderung?', 'token_enable', 'pb_settings_input', 'plugin_main_token');
-
-    // Keycloak Access-Token-API URL
-    register_setting('pb_settings_input', 'token_api_url');
-    //add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'pb_settings_input');
-    add_settings_field('token_url', 'Keycloak Token API URL:', 'token_setting_url', 'pb_settings_input', 'plugin_main_token');
-
-    // Keycloak client_id
-    register_setting('pb_settings_input', 'token_api_clientid');
-    add_settings_field('token_clientid', 'Client-ID:', 'token_setting_clientid', 'pb_settings_input', 'plugin_main_token');
-
-    // Keycloak username
-    register_setting('pb_settings_input', 'token_api_username');
-    add_settings_field('token_username', 'Benutzername:', 'token_setting_username', 'pb_settings_input', 'plugin_main_token');
-
-    // Keycloak password
-    register_setting('pb_settings_input', 'token_api_password');
-    add_settings_field('token_password', 'Passwort:', 'token_setting_password', 'pb_settings_input', 'plugin_main_token');
-}
-
-function plugin_section_text() {
-echo '<p>Geben Sie die URL zu der Projektbörse-API der TH Köln an.<br>Wird ein neuer Wordpress-Beitrag erstellt, so wird dieser direkt an die Projektbörse API gesendet, die ein JSON über eine REST Schnittstelle konsumiert</p>';
-}
-
-function token_section_text() {
-    echo '<p>Ist der Projektbörse-Server durch Keycloak geschützt, so können Sie hier die Zugangsdaten des Keycloak Realms eingeben um in der Lage zu sein, Beiträge im geschützten Bereich der Projektbörse verfassen zu können</p>';
-}
-
-function pb_api_url2432425() {
-    //delete_option('pb_api_url');
-    $options = get_option('pb_api_url', array('pb_url' => DEFAULT_API_URL));
-    echo "<input id='pb_url' name='pb_api_url[pb_url]' size='80' type='text' value='{$options['pb_url']}' />";
-
-}
-
-function token_enable () {
-    //delete_option('token_enable_checkbox');
-    $options = get_option('token_enable_checkbox', array('token_enable' => '0'));
-
-    ?>
-        <input type="hidden" name="token_enable_checkbox[token_enable]" value="0" >
-        <input type="checkbox" id='token_enable' name='token_enable_checkbox[token_enable]' value="1" <?php checked( $options['token_enable'], 1); ?> >
-        <label for="token_enable"><i>Fordere Zugangstoken mittels der unten gespeicherten Zugangsdaten an. Das Token wird zwingend benötigt um auf dem geschützten Realm an die REST-API senden zu können</i></label>
-    <?php
-    //$GLOBALS['readonly'] = get_option('token_enable_checkbox')['token_enable']  < 1 ? "readonly='readonly'" : "";
-}
-
-function token_setting_url() {
-    //delete_option('token_api_url');
-    $options = get_option('token_api_url', array('token_url' => DEFAULT_KEYCLOAK_API_URL));
-    echo "<input id='token_url'       name='token_api_url[token_url]'   size='80' type='text' value='{$options['token_url']}' />";
-    echo "<label><br><i>Geben Sie hier den Pfad zur Keycloak Zugangstoken API an. Beachten Sie dabei, dass Sie den korrekten Realm wählen. Dorthin wird eine Anfrage mit den unten gespeicherten Zugangsdaten gesendet. Sind die Daten korrekt, wird Keycloak ein Access-Token generieren und als Antwort senden. Dieses Token wird von diesem Plugin benutzt, um in dem geschützten Bereich der Projektbörse ein Post speichern zu können. <br>Das übliche Format sieht wie folgt aus:</i><br><code>https://<i>{url:port}</i>/auth/realms/<i>{realm name}</i>/protocol/openid-connect/token</code></label>";
-}
-
-function token_setting_clientid() {
-    //delete_option('token_api_clientid');
-    $options = get_option('token_api_clientid', array('token_clientid' => ''));
-    echo "<input id='token_clientid'  name='token_api_clientid[token_clientid]'   size='20' type='text' value='{$options['token_clientid']}' />";
-    echo "<label><br><i>Geben Sie hier Ihre Keycloak Client-ID für den Realm an</i></label>";
-}
-
-function token_setting_username() {
-    //delete_option('token_api_username');
-    $options = get_option('token_api_username', array('token_username' => ''));
-    echo "<input id='token_username'  name='token_api_username[token_username]'   size='20' type='text' value='{$options['token_username']}' />";
-    echo "<label><br><i>Geben Sie hier Ihren Keycloak Benutzernamen für den Realm  ein</i></label>";
-}
-
-function token_setting_password() {
-    //delete_option('token_api_password');
-    $options = get_option('token_api_password', array('token_password' => ''));
-    echo "<input id='token_password'  name='token_api_password[token_password]'   size='20' type='password' value='{$options['token_password']}' >";
-    echo "<label><br><i>Geben Sie hier das Passwort zu dem oben genannten Benutzernamen für den Realm  ein</i></label>";
-}
 
 // --------------------------- Debugging Section -------------------------------
 
