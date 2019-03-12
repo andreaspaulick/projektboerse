@@ -57,8 +57,6 @@ function post_published_api_call( $ID, $post) {
             );
         }
 
-
-
         $json_post = json_encode($post_data);
 
         if(get_option('token_enable_checkbox')['token_enable']==="0") {
@@ -233,7 +231,12 @@ function get_keycloak_token_response(){
         'method' => 'POST'
     ));
 
-    if($response['response']['code']!==200)
+    if ( is_wp_error( $response ) ) {
+        $error_message = $response->get_error_message();
+        my_log_file($error_message);
+        return $error_message;
+    }
+    else if($response['response']['code']!==200)
         return "TOKEN_REQUEST_ERROR";
 
     return $response;

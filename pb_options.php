@@ -8,9 +8,9 @@ function pb_options_page_html($post_data)
         return;
     }
     ?>
-    <div>
-        <h1><?= esc_html(get_admin_page_title()); ?></h1>
-        <form action="" method="post">
+    <div class="wrap">
+        <h1><?= esc_html(get_admin_page_title()); // get Page Title ?></h1>
+        <form action="options.php" method="post">
             <?php
             settings_fields( 'pb_settings_input' );
             do_settings_sections( 'pb_settings_input' );
@@ -45,6 +45,8 @@ function tokencheck534547_test() {
                 Stellen Sie sicher, dass die Einstellungen vorher gespeichert wurden und überprüfen Sie die Eingaben!";
     else if ($keycloak_token_response==="URL_MALFORMED")
         echo "MALFORMED_TOKEN_URL";
+    else if (strpos($keycloak_token_response, 'cURL error 7:') !== false)
+        echo "ERROR: Keycloak Server is unreachable";
     else {
         echo "ERFOLG!<br><br>Keycloak Access Token erfolgreich erhalten.";
 
