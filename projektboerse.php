@@ -233,7 +233,6 @@ function get_keycloak_token_response(){
 
     if ( is_wp_error( $response ) ) {
         $error_message = $response->get_error_message();
-        my_log_file($error_message);
         return $error_message;
     }
     else if($response['response']['code']!==200)
