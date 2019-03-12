@@ -199,8 +199,8 @@ function wp_post_to_html($wp_post_content){
 
 function extract_keycloak_access_token($response){
 
-    if($response==="TOKEN_REQUEST_ERROR")
-        return $response;
+    if($response==="TOKEN_REQUEST_ERROR" || !is_array($response) || strpos($response, 'cURL error 7:') !== false)
+        return "TOKEN_REQUEST_ERROR";
 
     $kc_response = json_decode($response['body']); // JSON to array
 
