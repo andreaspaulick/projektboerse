@@ -45,7 +45,7 @@ function tokencheck534547_test() {
                 Stellen Sie sicher, dass die Einstellungen vorher gespeichert wurden und überprüfen Sie die Eingaben!";
     else if ($keycloak_token_response==="URL_MALFORMED")
         echo "MALFORMED_TOKEN_URL";
-    else if (strpos($keycloak_token_response, 'cURL error 7:') !== false)
+    else if (!is_array($keycloak_token_response) && strpos($keycloak_token_response, 'cURL error 7:') !== false)
         echo "ERROR: Keycloak Server is unreachable";
     else {
         echo "ERFOLG!<br><br>Keycloak Access Token erfolgreich erhalten.";
