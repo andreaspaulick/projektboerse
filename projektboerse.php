@@ -1,17 +1,18 @@
 <?php
 /*
- * Plugin Name: TH Köln Projektbörse Beitragskloner
- * Description: Sendet als Projekt markierte Beiträge nach dem veröffentlichen automatisch an die Projektbörse der TH Köln.
+ * Plugin Name: TH Köln Projektbörsen-Klient
+ * Description: Projekte erstellen und mit der TH-Köln Projekt- und Themenbörse synchronisieren.
  * Author: Andreas Paulick
  * Author URI: https://github.com/andreaspaulick
- * Version: 0.1
- * Plugin URI: 
+ * Version: 0.2
+ * Plugin URI: https://github.com/andreaspaulick/projektboerse
 */
 
 defined( 'ABSPATH' ) or exit;
 define( 'DEFAULT_API_URL' , 'http://localhost:8045/posts/jsonadd' ); // default link to the PB API
 define( 'DEFAULT_KEYCLOAK_API_URL' , 'http://localhost:8180/auth/realms/pboerse/protocol/openid-connect/token' ); // default link to the keycloak API
 define( 'USE_LOCAL_PB' , TRUE ); // here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
+$sc_array = "bla";
 
 include 'pb_options.php';
 
@@ -37,14 +38,15 @@ function post_published_api_call( $ID, $post) {
         // data for local DUMMY PROJEKTBÖRSE
         if(USE_LOCAL_PB === TRUE) {
             $post_data = array(
-                'status' => 'publish',
+                'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
                 'title' => $title,
                 'content' => $content,
-                'course' => get_post_meta($post->ID, '_pb_wporg_meta_key1', true),
-                'start' => get_post_meta($post->ID, '_pb_wporg_meta_key2', true),
-                'end' => get_post_meta($post->ID, '_pb_wporg_meta_key3', true),
-                'max_party' => get_post_meta($post->ID, '_pb_wporg_meta_key4', true),
-                'tags' => wp_strip_all_tags(get_the_tag_list('', ',', '', $post->ID)),
+                'course' => implode(", ", get_post_meta($post->ID, '_pb_wporg_meta_key1', true)),
+                'type' => get_post_meta($post->ID, '_pb_wporg_meta_project_type', true),
+//                'start' => get_post_meta($post->ID, '_pb_wporg_meta_key2', true),
+//                'end' => get_post_meta($post->ID, '_pb_wporg_meta_key3', true),
+//                'max_party' => get_post_meta($post->ID, '_pb_wporg_meta_key4', true),
+//                'tags' => wp_strip_all_tags(get_the_tag_list('', ',', '', $post->ID)),
                 'user_login' => wp_get_current_user()->user_login
             );
         }
@@ -86,20 +88,128 @@ function post_published_api_call( $ID, $post) {
             keycloak_session_logout($token_response);
         }
 }
-add_action( 'publish_post', 'post_published_api_call', 10, 2);
+//add_action( 'publish_post', 'post_published_api_call', 10, 2);
+//add_action( 'publish_projects', 'post_published_api_call', 10, 2);
+
+// ----------------------------------
+
+function wpt_project_post_type() {
+    $labels = array(
+        'name'               => __( 'Projekte' ),
+        'singular_name'      => __( 'Projekt' ),
+        'add_new'            => __( 'Projekt erstellen' ),
+        'add_new_item'       => __( 'Neues Projekt anlegen' ),
+        'edit_item'          => __( 'Projekt bearbeiten' ),
+        'new_item'           => __( 'Neues Projekt anlegen' ),
+        'view_item'          => __( 'Projekt anzeigen' ),
+        'view_items'         => __( 'Projekte anzeigen' ),
+        'all_items'          => __( 'Alle Projekte' ),
+        'search_items'       => __( 'Projekte suchen' ),
+        'not_found'          => __( 'Keine Projekte gefunden' ),
+        'not_found_in_trash' => __( 'Keine Projekte im Papierkorb gefunden' )
+    );
+    $supports = array(
+        'title',
+        'editor',
+    );
+    $args = array(
+        'labels'               => $labels,
+        'supports'             => $supports,
+        'public'               => true,
+        'capability_type'      => 'post',
+        'rewrite'              => array( 'slug' => 'projects' ),
+        'has_archive'          => true,
+        'menu_position'        => 30,
+        'menu_icon'            => 'dashicons-welcome-learn-more',
+        'register_meta_box_cb' => 'pb_wporg_add_custom_box',
+    );
+    register_post_type( 'projects', $args );
+}
+add_action( 'init', 'wpt_project_post_type' );
+
+
+// ----------------------------------
+
+// add a [sc_pb_meta] shortcode at the end of every project-type-post
+add_filter('the_content', 'modify_content');
+function modify_content($content) {
+    global $post;
+    if($post->post_type === 'projects')
+        return $content . "[sc_pb_meta]" ;
+    else
+        return $content;
+}
+
+// add type-tags (PP, BA, MA) to the title
+add_filter('the_title', 'modify_title', 10, 2);
+function modify_title($title, $id) {
+    global $post;
+    $types = get_post_meta($id, '_pb_wporg_meta_project_type', true);
+
+    if (!empty($types) && $post->post_type === 'projects')
+        return "[".implode("/",$types)."] ".$title;
+    else
+        return $title;
+}
+
+
+function sc_pb_meta_function(){
+    global $post;
+
+    $study_courses = get_post_meta($post->ID, '_pb_wporg_meta_key1', true); // get array of selected courses
+    $project_type = get_post_meta($post->ID, '_pb_wporg_meta_project_type', true);
+
+    if(!empty($project_type)){
+        foreach ($project_type as &$type) {
+            if ($type === 'PP') $type = 'Praxisprojekt';
+            elseif ($type === 'BA') $type = 'Bachelorarbeit';
+            elseif ($type === 'MA') $type = 'Masterarbeit';
+        }
+    }
+    else
+        $project_type = ["nicht spezifiziert"];
+
+    $project_status = get_post_meta($post->ID, '_pb_wporg_meta_project_status', true);
+
+    if ($project_status === 'available') $project_status = 'verfügbar';
+    elseif ($project_status === 'in_progress') $project_status = 'in Bearbeitung';
+    elseif ($project_status === 'done') $project_status = 'abgeschlossen';
+
+    $all_courses = get_pb_courses(); // get array of all courses
+    $out_courses = array(); // target array for human-readable study course names
+
+    // translate long course-id into human readable course-name:
+    if (!empty($study_courses)) {
+        foreach ($study_courses as $key => $value) {
+            array_push($out_courses, $all_courses[$value]);
+        }
+    }
+    else
+        array_push($out_courses, "nicht spezifiziert");
+
+
+    return "<hr>
+            <span style=\"font-size: 12px;\">             
+            <strong>Projektstatus:</strong><br />".$project_status."<br /><br />     
+            <strong>Ziel Studiengänge:</strong><br />".implode("<br />", $out_courses)."<br /><br />
+            <strong>Geeignet für:</strong><br />".implode("<br />", $project_type).
+            "</span><hr>";
+
+}
+add_shortcode('sc_pb_meta', 'sc_pb_meta_function');
 
 // Add custom metabox paragraph for THK projects on "post" and "wporg_cpt" pages
 function pb_wporg_add_custom_box()
 {
-    $screens = ['post', 'wporg_cpt'];
-    foreach ($screens as $screen) {
+    //$screens = ['post', 'wporg_cpt'];
+    //foreach ($screens as $screen) {
         add_meta_box(
             'studiengang_wporg_box_id',           // Unique ID
-            'THK Projektbörse: Projektdaten',  // Box title
+            'Projektattribute',  // Box title
             'pb_custom_box_html',  // Content callback, must be of type callable
-            $screen                   // Post type
+            'projects'                  // Post type
         );
-    }
+    //}
 }
 add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 
@@ -107,37 +217,47 @@ add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 function pb_custom_box_html($post)
 {
     $meta = get_post_meta( $post->ID );
-    $checkbox_value = ( isset( $meta['checkbox_value'][0] ) &&  '1' === $meta['checkbox_value'][0] ) ? 1 : 0;
+    my_log_file($meta);
+    $checkbox_value = ( isset( $meta['_pb_wporg_meta_key0'][0] ) &&  '1' === $meta['_pb_wporg_meta_key0'][0] ) ? 1 : 0;
+    $study_course = get_post_meta($post->ID, '_pb_wporg_meta_key1', true);
+    $project_type = get_post_meta($post->ID, '_pb_wporg_meta_project_type', true);
+    $project_status = get_post_meta($post->ID, '_pb_wporg_meta_project_status', true);
     ?>
     <p>
-        <label><input type="checkbox" name="checkbox_value" value="1" <?php checked( $checkbox_value, 1 ); ?> />Kopie dieses Beitrags an Projektbörse senden?</label>
+        <label><input type="checkbox" name="checkbox_value" value="1" <?php checked( $checkbox_value, 1 ); ?> />An TH-Köln Projektbörse senden?</label>
     </p>
     <hr>
     <p>
-        <label for="pb_wporg_course">Studiengang</label>
+        <label for="pb_wporg_project_status"><strong>Projektstatus:</strong><br /></label>
+        <select name="pb_wporg_project_status" id="pb_wporg_project_status" class="postbox">
+            <option value="available" <?php selected( $project_status, "available" ); ?>>verfügbar</option>
+            <option value="in_progress" <?php selected( $project_status, "in_progress" ); ?>>in Bearbeitung</option>
+            <option value="done" <?php selected( $project_status, "done" ); ?>>abgeschlossen</option>
+        </select>
+    </p>
+    <p>
+        <label for="pb_wporg_course"><strong>Studiengang:</strong><br /></label>
         <select name="pb_wporg_course[]" id="pb_wporg_course" class="postbox" multiple="multiple" size="6">
             <?php
                 $data = get_pb_courses();  // get all the courses via REST-API
                 foreach($data as $key => $item){
             ?>
-                <option value="<?php echo $key;?>"><?php echo $item; ?></option>
+                <option value="<?php echo $key;?>" <?php echo ( !empty( $study_course ) && in_array( $key, $study_course ) ? ' selected="selected"' : '' ) ?>><?php echo $item; ?></option>
             <?php
                 }
             ?>
         </select>
     </p>
     <p>
-        <?php   ?>
-        <label for="pb_wporg_project_start">Projektstart:</label>
-        <input type="date" name="pb_wporg_project_start" id="pb_wporg_project_start" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key2', true);  ?>">
-    </p>
-    <p>
-        <label for="pb_wporg_project_end">Projektende:</label>
-        <input type="date" name="pb_wporg_project_end" id="pb_wporg_project_end" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key3', true);  ?>">
-    </p>
-    <p>
-        <label for="pb_wporg_project_max_participants">Teilnehmerbegrenzung:</label>
-        <input type="number" name="pb_wporg_project_max_participants" id="pb_wporg_project_max_participants" value="<?php echo get_post_meta($post->ID, '_pb_wporg_meta_key4', true);  ?>" size="2" min="1" max="999">
+        <label for="pb_wporg_project_type"><strong>Projekt geeignet für:</strong><br /></label>
+        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_pp" value="PP" <?php echo ( !empty( $project_type ) && in_array( 'PP', $project_type ) ? ' checked' : '' ) ?>>
+        <label for="pb_wporg_project_type_pp">Praxisprojekt<br /></label>
+
+        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_ba" value="BA" <?php echo ( !empty( $project_type ) && in_array( 'BA', $project_type ) ? ' checked' : '' ) ?>>
+        <label for="pb_wporg_project_type_ba">Bachelorarbeit<br /></label>
+
+        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_ma" value="MA" <?php echo ( !empty( $project_type ) && in_array( 'MA', $project_type ) ? ' checked' : '' ) ?>>
+        <label for="pb_wporg_project_type_ma">Masterarbeit<br /></label>
     </p>
     <?php
 }
@@ -145,49 +265,68 @@ function pb_custom_box_html($post)
 // save the pb-metabox data into a unique meta key
 function pb_wporg_save_postdata($post_id)
 {
-
     // checkbox
     $checkbox_value = ( isset( $_POST['checkbox_value'] ) && '1' === $_POST['checkbox_value'] ) ? 1 : 0; // Input var okay.
     update_post_meta( $post_id, '_pb_wporg_meta_key0', esc_attr( $checkbox_value ) );
 
     // study course
     if (array_key_exists('pb_wporg_course', $_POST)) {
+
         update_post_meta(
             $post_id,
             '_pb_wporg_meta_key1',
-            implode(', ', $_POST['pb_wporg_course']) // array to single string
+            //implode(', ', $_POST['pb_wporg_course']) // array to single string
+            $_POST['pb_wporg_course']
         );
     }
 
-    // project start
-    if (array_key_exists('pb_wporg_project_start', $_POST)) {
+//    // project start
+//    if (array_key_exists('pb_wporg_project_start', $_POST)) {
+//        update_post_meta(
+//            $post_id,
+//            '_pb_wporg_meta_key2',
+//            $_POST['pb_wporg_project_start']
+//        );
+//    }
+//
+//    // project end
+//    if (array_key_exists('pb_wporg_project_end', $_POST)) {
+//        update_post_meta(
+//            $post_id,
+//            '_pb_wporg_meta_key3',
+//            $_POST['pb_wporg_project_end']
+//        );
+//    }
+
+//    // project maximum participants
+//    if (array_key_exists('pb_wporg_project_max_participants', $_POST)) {
+//        update_post_meta(
+//            $post_id,
+//            '_pb_wporg_meta_key4',
+//            sanitize_text_field($_POST['pb_wporg_project_max_participants'])
+//        );
+//    }
+
+    // project type
+    if (array_key_exists('pb_wporg_project_type', $_POST)) {
         update_post_meta(
             $post_id,
-            '_pb_wporg_meta_key2',
-            $_POST['pb_wporg_project_start']
+            '_pb_wporg_meta_project_type',
+            $_POST['pb_wporg_project_type']
         );
     }
 
-    // project end
-    if (array_key_exists('pb_wporg_project_end', $_POST)) {
+    // project status
+    if (array_key_exists('pb_wporg_project_status', $_POST)) {
         update_post_meta(
             $post_id,
-            '_pb_wporg_meta_key3',
-            $_POST['pb_wporg_project_end']
-        );
-    }
-
-    // project maximum participants
-    if (array_key_exists('pb_wporg_project_max_participants', $_POST)) {
-        update_post_meta(
-            $post_id,
-            '_pb_wporg_meta_key4',
-            sanitize_text_field($_POST['pb_wporg_project_max_participants'])
+            '_pb_wporg_meta_project_status',
+            $_POST['pb_wporg_project_status']
         );
     }
 
 }
-add_action('publish_post', 'pb_wporg_save_postdata', 9);
+add_action('publish_projects', 'pb_wporg_save_postdata', 9);
 
 
 function wp_post_to_html($wp_post_content){
@@ -269,7 +408,7 @@ function get_pb_courses() {
 
     $response = wp_remote_get($url); // get study courses from PB API
     $response_body = json_decode($response['body'], TRUE); // we only need the body of the response
-    if($response_body['status']===404) // if status=404 the api was not found
+    if(array_key_exists('status', $response_body) && $response_body['status']===404) // if status=404 the api was not found
         return array("ERROR: Could not retrieve API data...");
 
     $courses = array_column_recursive($response_body,'name'); // go get all study courses
@@ -302,11 +441,6 @@ function array_column_recursive(array $haystack, $needle) {
     });
     return $found;
 }
-
-
-//  -------------------------  Options Page & Settings --------------------------------------
-
-
 
 // --------------------------- Debugging Section -------------------------------
 
