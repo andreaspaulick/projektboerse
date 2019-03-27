@@ -71,6 +71,11 @@ add_action('admin_menu', 'pb_options_page');
 add_action('admin_init', 'plugin_admin_init');
 function plugin_admin_init()
 {
+    // add [<project-type>] before title
+    register_setting('pb_settings_input', 'pb_add_type_tag');
+    add_settings_section('pb_misc_settings', 'Allgemeine Einstellungen', 'pb_misc_settings_text', 'pb_settings_input');
+    add_settings_field('pb_add_type_tag_field', 'Projekttyp-Tag', 'pb_add_type_tag3478', 'pb_settings_input', 'pb_misc_settings');
+
     // Path to Projektbörse API
     register_setting('pb_settings_input', 'pb_api_url');
     add_settings_section('plugin_main', 'Pfad zur Projektbörse API', 'plugin_section_text', 'pb_settings_input');
@@ -83,7 +88,6 @@ function plugin_admin_init()
 
     // Keycloak Access-Token-API URL
     register_setting('pb_settings_input', 'token_api_url');
-    //add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'pb_settings_input');
     add_settings_field('token_url', 'Keycloak Token API URL:', 'token_setting_url', 'pb_settings_input', 'plugin_main_token');
 
     // Keycloak client_id
@@ -105,6 +109,20 @@ function plugin_section_text() {
 
 function token_section_text() {
     echo '<p>Ist der Projektbörse-Server durch Keycloak geschützt, so können Sie hier die Zugangsdaten des Keycloak Realms eingeben um in der Lage zu sein, Beiträge im geschützten Bereich der Projektbörse verfassen zu können</p>';
+}
+
+function pb_misc_settings_text(){
+    echo '<p>Allgemeine Einstellungen</p>';
+}
+
+function pb_add_type_tag3478(){
+    $options = get_option('pb_add_type_tag', array('pb_add_type_tag_field' => '1'));
+    $checkbox_value = (isset( $options['pb_add_type_tag_field'] )  && '1' === $options['pb_add_type_tag_field'][0] ) ? 1 : 0;
+
+    ?>
+    <input type="checkbox" id="pb_add_type_tag" name='pb_add_type_tag[pb_add_type_tag_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
+    <label for="pb_add_type_tag"><i>Stelle einen Projekttyp-Tag vom Typ [PP/BA/MA] dem Projekttitel vorne an</i></label>
+    <?php
 }
 
 function pb_api_url2432425() {

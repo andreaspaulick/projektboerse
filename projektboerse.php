@@ -41,8 +41,8 @@ function post_published_api_call( $ID, $post) {
                 'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
                 'title' => $title,
                 'content' => $content,
-                'course' => implode(", ", get_post_meta($post->ID, '_pb_wporg_meta_key1', true)),
-                'type' => get_post_meta($post->ID, '_pb_wporg_meta_project_type', true),
+                'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_key1', true)),
+                'type' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_project_type', true)),
 //                'start' => get_post_meta($post->ID, '_pb_wporg_meta_key2', true),
 //                'end' => get_post_meta($post->ID, '_pb_wporg_meta_key3', true),
 //                'max_party' => get_post_meta($post->ID, '_pb_wporg_meta_key4', true),
@@ -88,8 +88,7 @@ function post_published_api_call( $ID, $post) {
             keycloak_session_logout($token_response);
         }
 }
-//add_action( 'publish_post', 'post_published_api_call', 10, 2);
-//add_action( 'publish_projects', 'post_published_api_call', 10, 2);
+add_action( 'publish_projects', 'post_published_api_call', 10, 2);
 
 // ----------------------------------
 
@@ -125,7 +124,7 @@ function wpt_project_post_type() {
     );
     register_post_type( 'projects', $args );
 }
-add_action( 'init', 'wpt_project_post_type' );
+add_action( 'init', 'wpt_project_post_type');
 
 
 // ----------------------------------
@@ -145,8 +144,9 @@ add_filter('the_title', 'modify_title', 10, 2);
 function modify_title($title, $id) {
     global $post;
     $types = get_post_meta($id, '_pb_wporg_meta_project_type', true);
+    $add_title = (isset(get_option('pb_add_type_tag')['pb_add_type_tag_field']) && "1" === get_option('pb_add_type_tag')['pb_add_type_tag_field']) ? 1 : 0;
 
-    if (!empty($types) && $post->post_type === 'projects')
+    if (!empty($types) && $post->post_type === 'projects' && $add_title === 1)
         return "[".implode("/",$types)."] ".$title;
     else
         return $title;
@@ -217,7 +217,6 @@ add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 function pb_custom_box_html($post)
 {
     $meta = get_post_meta( $post->ID );
-    my_log_file($meta);
     $checkbox_value = ( isset( $meta['_pb_wporg_meta_key0'][0] ) &&  '1' === $meta['_pb_wporg_meta_key0'][0] ) ? 1 : 0;
     $study_course = get_post_meta($post->ID, '_pb_wporg_meta_key1', true);
     $project_type = get_post_meta($post->ID, '_pb_wporg_meta_project_type', true);
