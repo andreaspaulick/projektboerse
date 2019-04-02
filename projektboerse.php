@@ -140,11 +140,7 @@ function pb_sync_delete_post($postid){
     if(get_option('token_enable_checkbox')['token_enable']==="0") { // don't use keycloak auth
         if(get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
 
-            $response = wp_remote_request($url, array(
-                'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
-                                    'method' => 'DELETE'
-                )
-            ));
+            $response = wp_remote_request($url, array('method' => 'DELETE' ));
         }
     }
     else { // use keycloak auth
@@ -158,8 +154,7 @@ function pb_sync_delete_post($postid){
             }
 
             $response = wp_remote_request($url, array(
-                'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
-                    'Authorization' => 'Bearer ' . $keycloak_access_token),
+                'headers' => array( 'Authorization' => 'Bearer ' . $keycloak_access_token),
                 'method' => 'DELETE'
             ));
 
