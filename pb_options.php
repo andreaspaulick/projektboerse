@@ -76,6 +76,15 @@ function plugin_admin_init()
     add_settings_section('pb_misc_settings', 'Allgemeine Einstellungen', 'pb_misc_settings_text', 'pb_settings_input');
     add_settings_field('pb_add_type_tag_field', 'Projekttyp-Tag', 'pb_add_type_tag3478', 'pb_settings_input', 'pb_misc_settings');
 
+    // default value for sending projects to pb
+    register_setting('pb_settings_input', 'pb_send_to_pb');
+    add_settings_field('pb_send_to_pb_field', 'Sync-Checkbox', 'pb_send_to_pb3478', 'pb_settings_input', 'pb_misc_settings');
+
+    // delete wp and pb posts at once
+    register_setting('pb_settings_input', 'pb_sync_delete');
+    add_settings_field('pb_sync_delete_field', 'Synchrones Löschen', 'pb_sync_delete3478', 'pb_settings_input', 'pb_misc_settings');
+
+
     // Path to Projektbörse API
     register_setting('pb_settings_input', 'pb_api_url');
     add_settings_section('plugin_main', 'Pfad zur Projektbörse API', 'plugin_section_text', 'pb_settings_input');
@@ -121,7 +130,27 @@ function pb_add_type_tag3478(){
 
     ?>
     <input type="checkbox" id="pb_add_type_tag" name='pb_add_type_tag[pb_add_type_tag_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
-    <label for="pb_add_type_tag"><i>Stelle einen Projekttyp-Tag vom Typ [PP/BA/MA] dem Projekttitel vorne an</i></label>
+    <label for="pb_add_type_tag"><i>Stelle einen Tag vom Typ [PP/BA/MA] dem Projekttitel voran, der einen Hinweis darauf bietet, für welche Art von wissenschaftlichen Arbeiten das Projekt geeignet ist</i></label>
+    <?php
+}
+
+function pb_send_to_pb3478(){
+    $options = get_option('pb_send_to_pb', array('pb_send_to_pb_field' => '1'));
+    $checkbox_value = (isset( $options['pb_send_to_pb_field'] )  && '1' === $options['pb_send_to_pb_field'][0] ) ? 1 : 0;
+
+    ?>
+    <input type="checkbox" id="pb_send_to_pb" name='pb_send_to_pb[pb_send_to_pb_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
+    <label for="pb_send_to_pb"><i>Aktiviere beim Erstellen eines neuen Projekts die Checkbox "mit Projektbörse synchronisieren" standardmäßig</i></label>
+    <?php
+}
+
+function pb_sync_delete3478(){
+    $options = get_option('pb_sync_delete', array('pb_sync_delete_field' => '1'));
+    $checkbox_value = (isset( $options['pb_sync_delete_field'] )  && '1' === $options['pb_sync_delete_field'][0] ) ? 1 : 0;
+
+    ?>
+    <input type="checkbox" id="pb_sync_delete" name='pb_sync_delete[pb_sync_delete_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
+    <label for="pb_sync_delete"><i>Entferne beim Löschen von Projekten in WordPress auch den korrespondierenden Eintrag in der Projektbörse</i></label>
     <?php
 }
 

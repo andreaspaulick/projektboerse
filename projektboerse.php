@@ -16,8 +16,6 @@ $sc_array = "bla";
 
 include 'pb_options.php';
 
-// ------------------------ Plugin functionality ----------------------------
-
 /**
  * post Variable Reference: https://codex.wordpress.org/Function_Reference/$post
  */
@@ -43,10 +41,6 @@ function post_published_api_call( $ID, $post) {
                 'content' => $content,
                 'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_key1', true)),
                 'type' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_project_type', true)),
-//                'start' => get_post_meta($post->ID, '_pb_wporg_meta_key2', true),
-//                'end' => get_post_meta($post->ID, '_pb_wporg_meta_key3', true),
-//                'max_party' => get_post_meta($post->ID, '_pb_wporg_meta_key4', true),
-//                'tags' => wp_strip_all_tags(get_the_tag_list('', ',', '', $post->ID)),
                 'user_login' => wp_get_current_user()->user_login
             );
         }
@@ -61,15 +55,101 @@ function post_published_api_call( $ID, $post) {
 
         $json_post = json_encode($post_data);
 
-        if(get_option('token_enable_checkbox')['token_enable']==="0") {
+        // save the project-id of the pb-post (if set)
+        $pb_project_id = get_post_meta($post->ID, 'pb_project_id', true);
 
-            $data = wp_remote_post($url, array(
-                'headers' => array( 'Content-Type' => 'application/json; charset=utf-8'),
-                'body' => $json_post,
-                'method' => 'POST'
+        if( metadata_exists( 'post', $post->ID, 'pb_project_id' )){ // means the project is edited
+
+            // TODO: change URL to PB
+            $url2 = 'http://localhost:8045/posts/id/'.$pb_project_id ;
+
+            if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
+                $data = wp_remote_request($url2, array(
+                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8'),
+                    'body' => $json_post,
+                    'method' => 'PUT'
+                ));
+            }
+            else { // use keycloak-authentication
+                $token_response = get_keycloak_token_response();
+                $keycloak_access_token = extract_keycloak_access_token($token_response);
+
+                if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
+                    return;
+                }
+
+                $data = wp_remote_request($url2, array(
+                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
+                        'Authorization' => 'Bearer ' . $keycloak_access_token),
+                    'body' => json_encode( array(
+                            'id' => $pb_project_id,
+                            'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
+                            'title' => $title,
+                            'content' => $content,
+                            'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_key1', true)),
+                            'type' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_project_type', true)),
+                            'user_login' => wp_get_current_user()->user_login
+                    )),
+                    'method' => 'PUT'
+                ));
+
+                //logout session
+                keycloak_session_logout($token_response);
+            }
+        }
+        else { // no previously saved project-id = new project
+            if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
+
+                $data = wp_remote_post($url, array(
+                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8'),
+                    'body' => $json_post,
+                    'method' => 'POST'
+                ));
+            }
+            else { // use keycloak-authentication
+                $token_response = get_keycloak_token_response();
+                $keycloak_access_token = extract_keycloak_access_token($token_response);
+
+                if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
+                    return;
+                }
+
+                $data = wp_remote_post($url, array(
+                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
+                        'Authorization' => 'Bearer ' . $keycloak_access_token),
+                    'body' => $json_post,
+                    'method' => 'POST'
+                ));
+                // save the id of the pb-project
+                update_post_meta( $post->ID, 'pb_project_id', json_decode(wp_remote_retrieve_body($data))->id);
+                //logout session
+                keycloak_session_logout($token_response);
+            }
+
+        }
+}
+add_action( 'publish_projects', 'post_published_api_call', 10, 2);
+
+
+// not only delete projects in wordpress, but also delete the corresponding entry in the pb via REST API
+function pb_sync_delete_post($postid){
+    global $post_type;
+    $pb_project_id = get_post_meta($postid, 'pb_project_id', true);
+    $url = 'http://localhost:8045/posts/delete/'.$pb_project_id ;
+
+    if(get_option('token_enable_checkbox')['token_enable']==="0") { // don't use keycloak auth
+        if(get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
+
+            $response = wp_remote_request($url, array(
+                'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
+                                    'method' => 'DELETE'
+                )
             ));
         }
-        else {
+    }
+    else { // use keycloak auth
+        if(get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
+
             $token_response = get_keycloak_token_response();
             $keycloak_access_token = extract_keycloak_access_token($token_response);
 
@@ -77,21 +157,20 @@ function post_published_api_call( $ID, $post) {
                 return;
             }
 
-            $data = wp_remote_post($url, array(
+            $response = wp_remote_request($url, array(
                 'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
                     'Authorization' => 'Bearer ' . $keycloak_access_token),
-                'body' => $json_post,
-                'method' => 'POST'
+                'method' => 'DELETE'
             ));
 
             //logout session
             keycloak_session_logout($token_response);
         }
+    }
 }
-add_action( 'publish_projects', 'post_published_api_call', 10, 2);
+add_action('before_delete_post', 'pb_sync_delete_post');
 
-// ----------------------------------
-
+// custom post-type "projects":
 function wpt_project_post_type() {
     $labels = array(
         'name'               => __( 'Projekte' ),
@@ -125,9 +204,6 @@ function wpt_project_post_type() {
     register_post_type( 'projects', $args );
 }
 add_action( 'init', 'wpt_project_post_type');
-
-
-// ----------------------------------
 
 // add a [sc_pb_meta] shortcode at the end of every project-type-post
 add_filter('the_content', 'modify_content');
@@ -188,12 +264,12 @@ function sc_pb_meta_function(){
         array_push($out_courses, "nicht spezifiziert");
 
 
-    return "<hr>
+    return "
             <span style=\"font-size: 12px;\">             
             <strong>Projektstatus:</strong><br />".$project_status."<br /><br />     
-            <strong>Ziel Studiengänge:</strong><br />".implode("<br />", $out_courses)."<br /><br />
+            <strong>Geeignete Studiengänge:</strong><br />".implode("<br />", $out_courses)."<br /><br />
             <strong>Geeignet für:</strong><br />".implode("<br />", $project_type).
-            "</span><hr>";
+            "</span>";
 
 }
 add_shortcode('sc_pb_meta', 'sc_pb_meta_function');
@@ -217,13 +293,20 @@ add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 function pb_custom_box_html($post)
 {
     $meta = get_post_meta( $post->ID );
-    $checkbox_value = ( isset( $meta['_pb_wporg_meta_key0'][0] ) &&  '1' === $meta['_pb_wporg_meta_key0'][0] ) ? 1 : 0;
+
+    if(!isset( $meta['_pb_wporg_meta_key0'][0])){  // if meta-key is unset it means that we are about to create a new post
+        $checkbox_value = (isset(get_option('pb_send_to_pb')['pb_send_to_pb_field'])) ? 1 : 0;  // set default value for checkbox depending on user settings
+    }
+    else { // user is editing an existing project and we saved a value ("1" or "0") for the checkbox before
+        $checkbox_value = ('1' === $meta['_pb_wporg_meta_key0'][0] ) ? 1 : 0;
+    }
+
     $study_course = get_post_meta($post->ID, '_pb_wporg_meta_key1', true);
     $project_type = get_post_meta($post->ID, '_pb_wporg_meta_project_type', true);
     $project_status = get_post_meta($post->ID, '_pb_wporg_meta_project_status', true);
     ?>
     <p>
-        <label><input type="checkbox" name="checkbox_value" value="1" <?php checked( $checkbox_value, 1 ); ?> />An TH-Köln Projektbörse senden?</label>
+        <label><input type="checkbox" name="checkbox_value" value="1" <?php checked( $checkbox_value, 1 ); ?> />Mit TH-Köln Projektbörse synchronisieren?</label>
     </p>
     <hr>
     <p>
@@ -249,13 +332,13 @@ function pb_custom_box_html($post)
     </p>
     <p>
         <label for="pb_wporg_project_type"><strong>Projekt geeignet für:</strong><br /></label>
-        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_pp" value="PP" <?php echo ( !empty( $project_type ) && in_array( 'PP', $project_type ) ? ' checked' : '' ) ?>>
+        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_pp" value="PP" <?php echo ( !isset( $meta['_pb_wporg_meta_project_type'][0]) || !empty( $project_type ) && in_array( 'PP', $project_type ) ? ' checked' : '' ) ?>>
         <label for="pb_wporg_project_type_pp">Praxisprojekt<br /></label>
 
-        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_ba" value="BA" <?php echo ( !empty( $project_type ) && in_array( 'BA', $project_type ) ? ' checked' : '' ) ?>>
+        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_ba" value="BA" <?php echo ( !isset( $meta['_pb_wporg_meta_project_type'][0]) || !empty( $project_type ) && in_array( 'BA', $project_type ) ? ' checked' : '' ) ?>>
         <label for="pb_wporg_project_type_ba">Bachelorarbeit<br /></label>
 
-        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_ma" value="MA" <?php echo ( !empty( $project_type ) && in_array( 'MA', $project_type ) ? ' checked' : '' ) ?>>
+        <input type="checkbox" name="pb_wporg_project_type[]" id="pb_wporg_project_type_ma" value="MA" <?php echo ( !isset( $meta['_pb_wporg_meta_project_type'][0]) || !empty( $project_type ) && in_array( 'MA', $project_type ) ? ' checked' : '' ) ?>>
         <label for="pb_wporg_project_type_ma">Masterarbeit<br /></label>
     </p>
     <?php
@@ -278,33 +361,6 @@ function pb_wporg_save_postdata($post_id)
             $_POST['pb_wporg_course']
         );
     }
-
-//    // project start
-//    if (array_key_exists('pb_wporg_project_start', $_POST)) {
-//        update_post_meta(
-//            $post_id,
-//            '_pb_wporg_meta_key2',
-//            $_POST['pb_wporg_project_start']
-//        );
-//    }
-//
-//    // project end
-//    if (array_key_exists('pb_wporg_project_end', $_POST)) {
-//        update_post_meta(
-//            $post_id,
-//            '_pb_wporg_meta_key3',
-//            $_POST['pb_wporg_project_end']
-//        );
-//    }
-
-//    // project maximum participants
-//    if (array_key_exists('pb_wporg_project_max_participants', $_POST)) {
-//        update_post_meta(
-//            $post_id,
-//            '_pb_wporg_meta_key4',
-//            sanitize_text_field($_POST['pb_wporg_project_max_participants'])
-//        );
-//    }
 
     // project type
     if (array_key_exists('pb_wporg_project_type', $_POST)) {
