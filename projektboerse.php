@@ -39,7 +39,7 @@ function post_published_api_call( $ID, $post) {
                 'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
                 'title' => $title,
                 'content' => $content,
-                'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_key1', true)),
+                'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_course', true)),
                 'type' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_project_type', true)),
                 'user_login' => wp_get_current_user()->user_login
             );
@@ -86,7 +86,7 @@ function post_published_api_call( $ID, $post) {
                             'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
                             'title' => $title,
                             'content' => $content,
-                            'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_key1', true)),
+                            'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_course', true)),
                             'type' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_project_type', true)),
                             'user_login' => wp_get_current_user()->user_login
                     )),
@@ -230,7 +230,7 @@ function modify_title($title, $id) {
 function sc_pb_meta_function(){
     global $post;
 
-    $study_courses = get_post_meta($post->ID, '_pb_wporg_meta_key1', true); // get array of selected courses
+    $study_courses = get_post_meta($post->ID, '_pb_wporg_meta_course', true); // get array of selected courses
     $project_type = get_post_meta($post->ID, '_pb_wporg_meta_project_type', true);
 
     if(!empty($project_type)){
@@ -299,7 +299,7 @@ function pb_custom_box_html($post)
         $checkbox_value = ('1' === $meta['_pb_wporg_meta_key0'][0] ) ? 1 : 0;
     }
 
-    $study_course = get_post_meta($post->ID, '_pb_wporg_meta_key1', true);
+    $study_course = get_post_meta($post->ID, '_pb_wporg_meta_course', true);
     $project_type = get_post_meta($post->ID, '_pb_wporg_meta_project_type', true);
     $project_status = get_post_meta($post->ID, '_pb_wporg_meta_project_status', true);
     ?>
@@ -354,7 +354,7 @@ function pb_wporg_save_postdata($post_id)
 
         update_post_meta(
             $post_id,
-            '_pb_wporg_meta_key1',
+            '_pb_wporg_meta_course',
             //implode(', ', $_POST['pb_wporg_course']) // array to single string
             $_POST['pb_wporg_course']
         );
@@ -493,6 +493,76 @@ function array_column_recursive(array $haystack, $needle) {
             $found[] = $value;
     });
     return $found;
+}
+
+function pb_import_pb_projects() {
+
+    //TODO check if keycloak token should be requested
+
+    $token_response = get_keycloak_token_response();
+    $keycloak_access_token = extract_keycloak_access_token($token_response);
+
+    if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
+        return;
+    }
+
+    // TODO alter URL
+    if(USE_LOCAL_PB === FALSE) {
+        $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
+    }
+    else {
+        $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/posts'; // add json-consuming ressource to url. Strip last slash if present
+    }
+
+    $request = wp_remote_get($url, array('headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
+        'Authorization' => 'Bearer ' . $keycloak_access_token)));
+
+    // TODO proper error handling
+    if( is_wp_error( $request ) ) {
+        return 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen';
+    }
+
+    $request_body = wp_remote_retrieve_body($request);
+    $projects = json_decode( $request_body , true);
+    $count = 0;
+
+    // build new post:
+    foreach ($projects as $key) {
+
+        //search for the pb-id in all of the projects meta-keys:
+        $args = array(
+            'meta_key'         => 'pb_project_id',
+            'meta_value'       => $key['id'],
+            'post_type'        => 'projects',
+
+        );
+        $posts_array = get_posts( $args ); // $posts_array is empty = no post with this id = we can safely import
+
+        if($key['user_login']===wp_get_current_user()->user_login && empty($posts_array)){  // only import if it's the users post AND if the post (the pb-project-id) is not already there
+            $imported_project = array(
+                'post_type'     => 'projects',
+                'post_title'    => $key['title'],
+                'post_content'  => $key['content'],
+                'post_author'   => $key['user_login'],
+                'post_status'   => 'publish'
+            );
+            //my_log_file($imported_project);
+            $post_id = wp_insert_post( $imported_project );
+            $count++;
+
+            // TODO add checkbox state
+            // add the missing metadata
+            update_post_meta( $post_id, 'pb_project_id', $key['id']); // add the pb-project id to the metadata, so we can sync-delete each post
+            update_post_meta( $post_id, '_pb_wporg_meta_project_status', $key['status']);
+            update_post_meta( $post_id, '_pb_wporg_meta_course', explode(",", $key['course']));
+            update_post_meta( $post_id, '_pb_wporg_meta_project_type', explode(",", $key['type']));
+        }
+
+    }
+    echo 'Projekte importiert: '.$count;
+
+    //logout session
+    keycloak_session_logout($token_response);
 }
 
 // --------------------------- Debugging Section -------------------------------

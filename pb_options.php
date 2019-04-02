@@ -10,6 +10,17 @@ function pb_options_page_html($post_data)
     ?>
     <div class="wrap">
         <h1><?= esc_html(get_admin_page_title()); // get Page Title ?></h1>
+        <form action="<?php echo admin_url('admin-post.php');?>" method="post" onsubmit="target_popup2(this)">
+            <input type="hidden" name="action" value="pb_import_pb_projects">
+            <?php submit_button( 'Importiere eigene Projekte aus Projektbörse', 'secondary', "" ,false ); ?>
+        </form>
+        <script>
+            function target_popup2(form) {
+                window.open('', 'formpopup', 'width=400,height=400,resizeable,scrollbars');
+                form.target = 'formpopup';
+            }
+        </script>
+
         <form action="options.php" method="post">
             <?php
             settings_fields( 'pb_settings_input' );
@@ -33,9 +44,9 @@ function pb_options_page_html($post_data)
     <?php
 }
 
-add_action( 'admin_post_tokencheck534547', 'tokencheck534547_test' );
+add_action( 'admin_post_tokencheck534547', 'tokencheck534547' );
 
-function tokencheck534547_test() {
+function tokencheck534547() {
 
     $keycloak_token_response = get_keycloak_token_response();
 
@@ -84,6 +95,9 @@ function plugin_admin_init()
     register_setting('pb_settings_input', 'pb_sync_delete');
     add_settings_field('pb_sync_delete_field', 'Synchrones Löschen', 'pb_sync_delete3478', 'pb_settings_input', 'pb_misc_settings');
 
+//    // import own projects
+//    register_setting('pb_settings_input', 'pb_import_projects');
+//    add_settings_field('pb_import_projects_field', 'Projekte Importieren', 'pb_import_projects3478', 'pb_settings_input', 'pb_misc_settings');
 
     // Path to Projektbörse API
     register_setting('pb_settings_input', 'pb_api_url');
@@ -153,6 +167,17 @@ function pb_sync_delete3478(){
     <label for="pb_sync_delete"><i>Entferne beim Löschen von Projekten in WordPress auch den korrespondierenden Eintrag in der Projektbörse</i></label>
     <?php
 }
+
+function pb_import_projects3478(){
+    ?>
+        <form action="<?php echo admin_url('admin-post.php');?>" method="post">
+            <input type="hidden" name="action" value="pb_import_pb_projects">
+<!--            <input type="submit" value="Importiere PB Projekte" >-->
+            <?php submit_button( 'Importiere PB Projekte', 'secondary', "" ,false ); ?>
+        </form>
+    <?php
+}
+add_action( 'admin_post_pb_import_pb_projects', 'pb_import_pb_projects' );
 
 function pb_api_url2432425() {
     //delete_option('pb_api_url');
