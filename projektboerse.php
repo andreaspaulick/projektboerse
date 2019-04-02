@@ -9,10 +9,9 @@
 */
 
 defined( 'ABSPATH' ) or exit;
-define( 'DEFAULT_API_URL' , 'http://localhost:8045/posts/jsonadd' ); // default link to the PB API
+define( 'DEFAULT_API_URL' , 'http://localhost:8045/' ); // default link to the PB API
 define( 'DEFAULT_KEYCLOAK_API_URL' , 'http://localhost:8180/auth/realms/pboerse/protocol/openid-connect/token' ); // default link to the keycloak API
 define( 'USE_LOCAL_PB' , TRUE ); // here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
-$sc_array = "bla";
 
 include 'pb_options.php';
 
@@ -23,6 +22,7 @@ function post_published_api_call( $ID, $post) {
 
     if( get_post_meta($post->ID, '_pb_wporg_meta_key0', true) !== "1" ) return; // return (do nothing) if checkbox "also send to pb" is not checked
 
+        // TODO alter URL
         if(USE_LOCAL_PB === FALSE) {
             $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
         }
@@ -61,7 +61,7 @@ function post_published_api_call( $ID, $post) {
         if( metadata_exists( 'post', $post->ID, 'pb_project_id' )){ // means the project is edited
 
             // TODO: change URL to PB
-            $url2 = 'http://localhost:8045/posts/id/'.$pb_project_id ;
+            $url2 = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/posts/id/'.$pb_project_id ;
 
             if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
                 $data = wp_remote_request($url2, array(
@@ -135,7 +135,9 @@ add_action( 'publish_projects', 'post_published_api_call', 10, 2);
 function pb_sync_delete_post($postid){
     global $post_type;
     $pb_project_id = get_post_meta($postid, 'pb_project_id', true);
-    $url = 'http://localhost:8045/posts/delete/'.$pb_project_id ;
+
+    //TODO alter URL
+    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/posts/delete/'.$pb_project_id ;
 
     if(get_option('token_enable_checkbox')['token_enable']==="0") { // don't use keycloak auth
         if(get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
@@ -199,6 +201,7 @@ function wpt_project_post_type() {
     register_post_type( 'projects', $args );
 }
 add_action( 'init', 'wpt_project_post_type');
+
 
 // add a [sc_pb_meta] shortcode at the end of every project-type-post
 add_filter('the_content', 'modify_content');
