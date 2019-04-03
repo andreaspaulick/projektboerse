@@ -20,7 +20,7 @@ include 'pb_options.php';
  */
 function post_published_api_call( $ID, $post) {
 
-    if( get_post_meta($post->ID, '_pb_wporg_meta_key0', true) !== "1" ) return; // return (do nothing) if checkbox "also send to pb" is not checked
+    if( get_post_meta($post->ID, '_pb_wporg_meta_checkbox', true) !== "1" ) return; // return (do nothing) if checkbox "also send to pb" is not checked
 
         // TODO alter URL
         if(USE_LOCAL_PB === FALSE) {
@@ -78,10 +78,11 @@ function post_published_api_call( $ID, $post) {
                     return;
                 }
 
-                $data = wp_remote_request($url2, array(
-                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
-                        'Authorization' => 'Bearer ' . $keycloak_access_token),
-                    'body' => json_encode( array(
+                if(USE_LOCAL_PB === TRUE) {
+                    $data = wp_remote_request($url2, array(
+                        'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
+                            'Authorization' => 'Bearer ' . $keycloak_access_token),
+                        'body' => json_encode( array(
                             'id' => $pb_project_id,
                             'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
                             'title' => $title,
@@ -89,12 +90,17 @@ function post_published_api_call( $ID, $post) {
                             'course' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_course', true)),
                             'type' => implode(",", get_post_meta($post->ID, '_pb_wporg_meta_project_type', true)),
                             'user_login' => wp_get_current_user()->user_login
-                    )),
-                    'method' => 'PUT'
-                ));
+                        )),
+                        'method' => 'PUT'
+                    ));
 
-                //logout session
-                keycloak_session_logout($token_response);
+                    //logout session
+                    keycloak_session_logout($token_response);
+                }
+                else { // use official prox
+                    // TODO alter this block to work with official prox
+                }
+
             }
         }
         else { // no previously saved project-id = new project
@@ -227,6 +233,7 @@ function modify_title($title, $id) {
 }
 
 
+// defines what the shortcode should display
 function sc_pb_meta_function(){
     global $post;
 
@@ -292,11 +299,11 @@ function pb_custom_box_html($post)
 {
     $meta = get_post_meta( $post->ID );
 
-    if(!isset( $meta['_pb_wporg_meta_key0'][0])){  // if meta-key is unset it means that we are about to create a new post
+    if(!isset( $meta['_pb_wporg_meta_checkbox'][0])){  // if meta-key is unset it means that we are about to create a new post
         $checkbox_value = (isset(get_option('pb_send_to_pb')['pb_send_to_pb_field'])) ? 1 : 0;  // set default value for checkbox depending on user settings
     }
     else { // user is editing an existing project and we saved a value ("1" or "0") for the checkbox before
-        $checkbox_value = ('1' === $meta['_pb_wporg_meta_key0'][0] ) ? 1 : 0;
+        $checkbox_value = ('1' === $meta['_pb_wporg_meta_checkbox'][0] ) ? 1 : 0;
     }
 
     $study_course = get_post_meta($post->ID, '_pb_wporg_meta_course', true);
@@ -347,7 +354,7 @@ function pb_wporg_save_postdata($post_id)
 {
     // checkbox
     $checkbox_value = ( isset( $_POST['checkbox_value'] ) && '1' === $_POST['checkbox_value'] ) ? 1 : 0; // Input var okay.
-    update_post_meta( $post_id, '_pb_wporg_meta_key0', esc_attr( $checkbox_value ) );
+    update_post_meta( $post_id, '_pb_wporg_meta_checkbox', esc_attr( $checkbox_value ) );
 
     // study course
     if (array_key_exists('pb_wporg_course', $_POST)) {
@@ -497,15 +504,6 @@ function array_column_recursive(array $haystack, $needle) {
 
 function pb_import_pb_projects() {
 
-    //TODO check if keycloak token should be requested
-
-    $token_response = get_keycloak_token_response();
-    $keycloak_access_token = extract_keycloak_access_token($token_response);
-
-    if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
-        return;
-    }
-
     // TODO alter URL
     if(USE_LOCAL_PB === FALSE) {
         $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
@@ -514,55 +512,127 @@ function pb_import_pb_projects() {
         $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/posts'; // add json-consuming ressource to url. Strip last slash if present
     }
 
-    $request = wp_remote_get($url, array('headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
-        'Authorization' => 'Bearer ' . $keycloak_access_token)));
+    if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
+       
+        $request = wp_remote_get($url);
 
-    // TODO proper error handling
-    if( is_wp_error( $request ) ) {
-        return 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen';
-    }
-
-    $request_body = wp_remote_retrieve_body($request);
-    $projects = json_decode( $request_body , true);
-    $count = 0;
-
-    // build new post:
-    foreach ($projects as $key) {
-
-        //search for the pb-id in all of the projects meta-keys:
-        $args = array(
-            'meta_key'         => 'pb_project_id',
-            'meta_value'       => $key['id'],
-            'post_type'        => 'projects',
-
-        );
-        $posts_array = get_posts( $args ); // $posts_array is empty = no post with this id = we can safely import
-
-        if($key['user_login']===wp_get_current_user()->user_login && empty($posts_array)){  // only import if it's the users post AND if the post (the pb-project-id) is not already there
-            $imported_project = array(
-                'post_type'     => 'projects',
-                'post_title'    => $key['title'],
-                'post_content'  => $key['content'],
-                'post_author'   => $key['user_login'],
-                'post_status'   => 'publish'
-            );
-            //my_log_file($imported_project);
-            $post_id = wp_insert_post( $imported_project );
-            $count++;
-
-            // TODO add checkbox state
-            // add the missing metadata
-            update_post_meta( $post_id, 'pb_project_id', $key['id']); // add the pb-project id to the metadata, so we can sync-delete each post
-            update_post_meta( $post_id, '_pb_wporg_meta_project_status', $key['status']);
-            update_post_meta( $post_id, '_pb_wporg_meta_course', explode(",", $key['course']));
-            update_post_meta( $post_id, '_pb_wporg_meta_project_type', explode(",", $key['type']));
+        if (is_wp_error($request) || wp_remote_retrieve_response_code( $request ) === 404){
+            echo 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen.';
+            return;
         }
 
-    }
-    echo 'Projekte importiert: '.$count;
+        $request_body = wp_remote_retrieve_body($request);
+        $projects = json_decode($request_body, true);
+        $count = 0;
 
-    //logout session
-    keycloak_session_logout($token_response);
+        // build new post:
+        foreach ($projects as $key) {
+
+            if(USE_LOCAL_PB === TRUE) {
+
+                //search for the pb-id in all of the projects meta-keys:
+                $args = array(
+                    'meta_key' => 'pb_project_id',
+                    'meta_value' => $key['id'],
+                    'post_type' => 'projects',
+
+                );
+                $posts_array = get_posts($args); // $posts_array is empty = no post with this id = we can safely import
+
+                if ($key['user_login'] === wp_get_current_user()->user_login && empty($posts_array)) {  // only import if it's the users post AND if the post (the pb-project-id) is not already there
+                    $imported_project = array(
+                        'post_type' => 'projects',
+                        'post_title' => $key['title'],
+                        'post_content' => $key['content'],
+                        'post_author' => $key['user_login'],
+                        'post_status' => 'publish'
+                    );
+                    //my_log_file($imported_project);
+                    $post_id = wp_insert_post($imported_project);
+
+                    if(!is_wp_error($post_id))
+                        $count++;
+
+                    update_post_meta($post_id, 'pb_project_id', $key['id']); // add the pb-project id to the metadata, so we can sync-delete each post
+                    update_post_meta($post_id, '_pb_wporg_meta_project_status', $key['status']);
+                    update_post_meta($post_id, '_pb_wporg_meta_course', explode(",", $key['course']));
+                    update_post_meta($post_id, '_pb_wporg_meta_project_type', explode(",", $key['type']));
+                    update_post_meta($post_id, '_pb_wporg_meta_checkbox', 1);
+                }
+            }
+            else {
+                // TODO add support for official prox
+            }
+
+        }
+        echo 'Projekte erfolgreich importiert: ' . $count;
+    }
+    else { // use keycloak-authentication
+
+        $token_response = get_keycloak_token_response();
+        $keycloak_access_token = extract_keycloak_access_token($token_response);
+
+        if ($keycloak_access_token === "TOKEN_REQUEST_ERROR") {
+            return;
+        }
+
+        $request = wp_remote_get($url, array('headers' => array('Content-Type' => 'application/json; charset=utf-8',
+            'Authorization' => 'Bearer ' . $keycloak_access_token)));
+
+        if (is_wp_error($request) || wp_remote_retrieve_response_code( $request ) === 404){
+            echo 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen.';
+            return;
+        }
+
+        $request_body = wp_remote_retrieve_body($request);
+        $projects = json_decode($request_body, true);
+        $count = 0;
+
+        // build new post:
+        foreach ($projects as $key) {
+
+            if(USE_LOCAL_PB === TRUE) {
+
+                //search for the pb-id in all of the projects meta-keys:
+                $args = array(
+                    'meta_key' => 'pb_project_id',
+                    'meta_value' => $key['id'],
+                    'post_type' => 'projects',
+
+                );
+                $posts_array = get_posts($args); // $posts_array is empty = no post with this id = we can safely import
+
+                if ($key['user_login'] === wp_get_current_user()->user_login && empty($posts_array)) {  // only import if it's the users post AND if the post (the pb-project-id) is not already there
+                    $imported_project = array(
+                        'post_type' => 'projects',
+                        'post_title' => $key['title'],
+                        'post_content' => $key['content'],
+                        'post_author' => $key['user_login'],
+                        'post_status' => 'publish'
+                    );
+                    //my_log_file($imported_project);
+                    $post_id = wp_insert_post($imported_project);
+
+                    if(!is_wp_error($post_id))
+                        $count++;
+
+                    update_post_meta($post_id, 'pb_project_id', $key['id']); // add the pb-project id to the metadata, so we can sync-delete each post
+                    update_post_meta($post_id, '_pb_wporg_meta_project_status', $key['status']);
+                    update_post_meta($post_id, '_pb_wporg_meta_course', explode(",", $key['course']));
+                    update_post_meta($post_id, '_pb_wporg_meta_project_type', explode(",", $key['type']));
+                    update_post_meta($post_id, '_pb_wporg_meta_checkbox', 1);
+                }
+
+            }
+            else {
+                // TODO add support for official prox
+            }
+        }
+        echo 'Projekte erfolgreich importiert: ' . $count;
+
+        //logout session
+        keycloak_session_logout($token_response);
+    }
 }
 
 // --------------------------- Debugging Section -------------------------------
