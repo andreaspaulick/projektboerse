@@ -95,9 +95,9 @@ function plugin_admin_init()
     register_setting('pb_settings_input', 'pb_sync_delete');
     add_settings_field('pb_sync_delete_field', 'Synchrones Löschen', 'pb_sync_delete3478', 'pb_settings_input', 'pb_misc_settings');
 
-//    // import own projects
-//    register_setting('pb_settings_input', 'pb_import_projects');
-//    add_settings_field('pb_import_projects_field', 'Projekte Importieren', 'pb_import_projects3478', 'pb_settings_input', 'pb_misc_settings');
+    // add date and time to project-post
+    register_setting('pb_settings_input', 'pb_add_datetime');
+    add_settings_field('pb_add_datetime_field', 'Zeistempel hinzufügen', 'pb_add_datetime3478', 'pb_settings_input', 'pb_misc_settings');
 
     // Path to Projektbörse API
     register_setting('pb_settings_input', 'pb_api_url');
@@ -165,6 +165,16 @@ function pb_sync_delete3478(){
     ?>
     <input type="checkbox" id="pb_sync_delete" name='pb_sync_delete[pb_sync_delete_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
     <label for="pb_sync_delete"><i>Entferne beim Löschen von Projekten in WordPress auch den korrespondierenden Eintrag in der Projektbörse</i></label>
+    <?php
+}
+
+function pb_add_datetime3478() {
+    $options = get_option('pb_add_datetime', array('pb_add_datetime_field' => '1'));
+    $checkbox_value = (isset( $options['pb_add_datetime_field'] )  && '1' === $options['pb_add_datetime_field'][0] ) ? 1 : 0;
+
+    ?>
+    <input type="checkbox" id="pb_add_datetime" name='pb_add_datetime[pb_add_datetime_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
+    <label for="pb_add_datetime"><i>Am Ende von jedem Projekt, Datum und Uhrzeit der Projekterstellung anfügen</i></label>
     <?php
 }
 

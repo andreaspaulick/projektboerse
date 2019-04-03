@@ -193,14 +193,6 @@ function wpt_project_post_type() {
         'title',
         'editor',
         'author',
-//        'thumbnail',
-//        'excerpt',
-//        'trackbacks',
-//        'custom-fields',
-//        'comments',
-//        'revisions',
-//        'page-attributes',
-//        'post-formats',
     );
     $args = array(
         'labels'               => $labels,
@@ -222,8 +214,13 @@ add_action( 'init', 'wpt_project_post_type');
 add_filter('the_content', 'modify_content');
 function modify_content($content) {
     global $post;
+
     if($post->post_type === 'projects')
-        return $content . "[sc_pb_meta]"."[sc_pb_meta_dateandtime]" ;
+        if(isset(get_option('pb_add_datetime')['pb_add_datetime_field'])) {
+            return $content . "[sc_pb_meta]"."[sc_pb_meta_dateandtime]" ;
+        }
+        else
+            return $content . "[sc_pb_meta]";
     else
         return $content;
 }
@@ -277,20 +274,27 @@ function sc_pb_meta_function(){
     else
         array_push($out_courses, "nicht spezifiziert");
 
-
-    return "
-            <span style=\"font-size: 12px;\">             
-            <strong>Projektstatus:</strong><br />".$project_status."<br /><br />     
-            <strong>Geeignete Studiengänge:</strong><br />".implode("<br />", $out_courses)."<br /><br />
-            <strong>Geeignet für:</strong><br />".implode("<br />", $project_type).
-            "</span>";
-
+    $shortcode_meta = "<span style=\"font-size: 12px;\" > 
+                            <table style=\"width:100%\">
+                                  <tr>
+                                    <th>Projektstatus</th>
+                                    <th>Geeignete Studiengänge</th>
+                                    <th>Geeignet für</th>
+                                  </tr>
+                                  <tr>
+                                    <td>".$project_status."</td>
+                                    <td>".implode('<br />', $out_courses)."</td>
+                                    <td>".implode('<br />', $project_type)."</td>
+                                  </tr>
+                            </table>
+                       </span>";
+    return $shortcode_meta;
 }
 add_shortcode('sc_pb_meta', 'sc_pb_meta_function');
 
 function sc_pb_meta_dateandtime(){
     global $post;
-    return "<br /><br /><span style='font-size: 10px;'> <i>Projekt erstellt am: ".get_the_date("d. F Y, H:i", $post->ID)."</i></span>";
+    return "<span style='font-size: 10px;'> <i>Projekt erstellt am: ".get_the_date("d. F Y, H:i", $post->ID)." Uhr</i></span>";
 }
 add_shortcode('sc_pb_meta_dateandtime', 'sc_pb_meta_dateandtime');
 
@@ -559,7 +563,6 @@ function pb_import_pb_projects() {
                         'post_type' => 'projects',
                         'post_title' => $key['title'],
                         'post_content' => $key['content'],
-                        'post_author' => $key['user_login'],
                         'post_status' => 'publish'
                     );
                     //my_log_file($imported_project);
@@ -622,7 +625,6 @@ function pb_import_pb_projects() {
                         'post_type' => 'projects',
                         'post_title' => $key['title'],
                         'post_content' => $key['content'],
-                        'post_author' => $key['user_login'],
                         'post_status' => 'publish'
                     );
                     //my_log_file($imported_project);
