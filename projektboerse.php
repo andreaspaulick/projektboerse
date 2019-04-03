@@ -192,6 +192,15 @@ function wpt_project_post_type() {
     $supports = array(
         'title',
         'editor',
+        'author',
+//        'thumbnail',
+//        'excerpt',
+//        'trackbacks',
+//        'custom-fields',
+//        'comments',
+//        'revisions',
+//        'page-attributes',
+//        'post-formats',
     );
     $args = array(
         'labels'               => $labels,
@@ -199,7 +208,7 @@ function wpt_project_post_type() {
         'public'               => true,
         'capability_type'      => 'post',
         'rewrite'              => array( 'slug' => 'projects' ),
-        'has_archive'          => true,
+        'has_archive'          => 'projects',
         'menu_position'        => 30,
         'menu_icon'            => 'dashicons-welcome-learn-more',
         'register_meta_box_cb' => 'pb_wporg_add_custom_box',
@@ -214,7 +223,7 @@ add_filter('the_content', 'modify_content');
 function modify_content($content) {
     global $post;
     if($post->post_type === 'projects')
-        return $content . "[sc_pb_meta]" ;
+        return $content . "[sc_pb_meta]"."[sc_pb_meta_dateandtime]" ;
     else
         return $content;
 }
@@ -278,6 +287,12 @@ function sc_pb_meta_function(){
 
 }
 add_shortcode('sc_pb_meta', 'sc_pb_meta_function');
+
+function sc_pb_meta_dateandtime(){
+    global $post;
+    return "<br /><br /><span style='font-size: 10px;'> <i>Projekt erstellt am: ".get_the_date("d. F Y, H:i", $post->ID)."</i></span>";
+}
+add_shortcode('sc_pb_meta_dateandtime', 'sc_pb_meta_dateandtime');
 
 // Add custom metabox paragraph for THK projects on "post" and "wporg_cpt" pages
 function pb_wporg_add_custom_box()
