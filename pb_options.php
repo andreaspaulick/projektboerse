@@ -12,14 +12,35 @@ function pb_options_page_html($post_data)
         <h1><?= esc_html(get_admin_page_title()); // get Page Title ?></h1>
         <form action="<?php echo admin_url('admin-post.php');?>" method="post" onsubmit="target_popup2(this)">
             <input type="hidden" name="action" value="pb_import_pb_projects">
-            <?php submit_button( 'Importiere eigene Projekte aus Projektbörse', 'secondary', "" ,false ); ?>
+            <?php submit_button( 'Synchronisiere eigene Projekte aus Projektbörse', 'secondary', "" ,false ); ?>
         </form>
         <script>
             function target_popup2(form) {
-                window.open('', 'formpopup', 'width=400,height=400,resizeable,scrollbars');
+                window.open('', 'formpopup', 'width=520,height=600,resizeable,scrollbars');
                 form.target = 'formpopup';
             }
         </script>
+
+
+        <br /><form action="<?php echo admin_url('admin-post.php');?>" method="post">
+            <input type="hidden" name="action" value="pb_auth_code_grant">
+            <?php submit_button( 'Authentifizierung', 'secondary', "" ,false ); ?>
+        </form>
+
+<!--        <br /><form action="https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth" method="post" onsubmit="get_token446t4(this)">-->
+<!--            <input type="hidden" name="client_id" value="wordpress-plugin" />-->
+<!--            <input type="hidden" name="redirect_uri" value="--><?php //echo plugins_url('/projektboerse/redirect.php');?><!--" />-->
+<!--            <input type="hidden" name="response_type" value="code" />-->
+<!--            <input type="hidden" name="scope" value="openid" />-->
+<!--            <input type="hidden" name="state" value="E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT">-->
+<!--            --><?php //submit_button( 'Authentifizierung', 'secondary', "" ,false ); ?>
+<!--        </form>-->
+<!--        <script>-->
+<!--            function get_token446t4(form) {-->
+<!--                window.open('', 'formpopup', 'width=600,height=600,resizeable,scrollbars');-->
+<!--                form.target = 'formpopup';-->
+<!--            }-->
+<!--        </script>-->
 
         <form action="options.php" method="post">
             <?php
@@ -45,6 +66,43 @@ function pb_options_page_html($post_data)
 }
 
 add_action( 'admin_post_tokencheck534547', 'tokencheck534547' );
+add_action( 'admin_post_pb_import_pb_projects', 'pb_import_pb_projects' );
+add_action( 'admin_post_pb_auth_code_grant', 'pb_auth_code_grant' );
+
+function pb_auth_code_grant () {
+    //$url = "https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth";
+
+    wp_redirect("https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth?client_id=wordpress-plugin&redirect_uri=".plugins_url('/projektboerse/redirect.php')."&response_type=code&scope=openid&state=E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT");
+
+//    $response = wp_remote_request($url, array(
+//        'headers' => array( 'Content-Type'      => 'application/x-www-form-urlencoded; charset=utf-8',
+//                            'client_id'         => 'wordpress-plugin',
+//                            'redirect_uri'      => admin_url('admin-post.php'),
+//                            'response_type'     => 'code',
+//                            'scope'             => 'openid',
+//                            'state'             => 'E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT'
+//            ),
+//        'method' => 'POST'
+//    ));
+//    $request_body = array(
+//        'client_id'         => 'wordpress-plugin',
+//        'redirect_uri'      => admin_url('options-general.php?page=pboerse'),
+//        'response_type'     => 'code',
+//        'scope'             => 'openid',
+//        'state'             => 'E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT'
+//    );
+//
+//    $response = wp_remote_post($url, array(
+//        'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded'),
+//        'body' => http_build_query($request_body),
+//        'method' => 'POST'
+//    ));
+//    my_log_file($response);
+
+    exit;
+}
+//add_action( 'admin_post_pb_auth_code_grant', 'pb_auth_code_grant' );
+
 
 function tokencheck534547() {
 
@@ -98,6 +156,10 @@ function plugin_admin_init()
     // add date and time to project-post
     register_setting('pb_settings_input', 'pb_add_datetime');
     add_settings_field('pb_add_datetime_field', 'Zeistempel hinzufügen', 'pb_add_datetime3478', 'pb_settings_input', 'pb_misc_settings');
+
+    // enter standard-supervisor-name
+    register_setting('pb_settings_input', 'pb_add_supervisor');
+    add_settings_field('pb_add_supervisor_field', 'Standard Betreuer Name', 'pb_add_supervisor3478', 'pb_settings_input', 'pb_misc_settings');
 
     // Path to Projektbörse API
     register_setting('pb_settings_input', 'pb_api_url');
@@ -178,22 +240,17 @@ function pb_add_datetime3478() {
     <?php
 }
 
-function pb_import_projects3478(){
-    ?>
-        <form action="<?php echo admin_url('admin-post.php');?>" method="post">
-            <input type="hidden" name="action" value="pb_import_pb_projects">
-<!--            <input type="submit" value="Importiere PB Projekte" >-->
-            <?php submit_button( 'Importiere PB Projekte', 'secondary', "" ,false ); ?>
-        </form>
-    <?php
-}
-add_action( 'admin_post_pb_import_pb_projects', 'pb_import_pb_projects' );
-
 function pb_api_url2432425() {
     //delete_option('pb_api_url');
     $options = get_option('pb_api_url', array('pb_url' => DEFAULT_API_URL));
     echo "<input id='pb_url' name='pb_api_url[pb_url]' size='80' type='text' value='{$options['pb_url']}' />";
 
+}
+
+function pb_add_supervisor3478() {
+    //delete_option('pb_add_supervisor');
+    $options = get_option('pb_add_supervisor', array('pb_add_supervisor_field' => 'Benutzer'));
+    echo "<input id='pb_add_supervisor_field' name='pb_add_supervisor[pb_add_supervisor_field]' size='80' type='text' value='{$options['pb_add_supervisor_field']}' />";
 }
 
 function token_enable () {
