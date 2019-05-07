@@ -22,25 +22,25 @@ function pb_options_page_html($post_data)
         </script>
 
 
-        <br /><form action="<?php echo admin_url('admin-post.php');?>" method="post">
-            <input type="hidden" name="action" value="pb_auth_code_grant">
-            <?php submit_button( 'Authentifizierung', 'secondary', "" ,false ); ?>
-        </form>
-
-<!--        <br /><form action="https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth" method="post" onsubmit="get_token446t4(this)">-->
-<!--            <input type="hidden" name="client_id" value="wordpress-plugin" />-->
-<!--            <input type="hidden" name="redirect_uri" value="--><?php //echo plugins_url('/projektboerse/redirect.php');?><!--" />-->
-<!--            <input type="hidden" name="response_type" value="code" />-->
-<!--            <input type="hidden" name="scope" value="openid" />-->
-<!--            <input type="hidden" name="state" value="E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT">-->
+<!--        <br /><form action="--><?php //echo admin_url('admin-post.php');?><!--" method="post">-->
+<!--            <input type="hidden" name="action" value="pb_auth_code_grant">-->
 <!--            --><?php //submit_button( 'Authentifizierung', 'secondary', "" ,false ); ?>
 <!--        </form>-->
-<!--        <script>-->
-<!--            function get_token446t4(form) {-->
-<!--                window.open('', 'formpopup', 'width=600,height=600,resizeable,scrollbars');-->
-<!--                form.target = 'formpopup';-->
-<!--            }-->
-<!--        </script>-->
+
+        <br /><form action="https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth" method="post" onsubmit="get_token446t4(this)">
+            <input type="hidden" name="client_id" value="wordpress-plugin" />
+            <input type="hidden" name="redirect_uri" value="<?php echo plugins_url('/projektboerse/redirect.php');?>" />
+            <input type="hidden" name="response_type" value="code" />
+            <input type="hidden" name="scope" value="openid" />
+            <input type="hidden" name="state" value="E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT">
+            <?php submit_button( 'Authentifizierung', 'secondary', "" ,false ); ?>
+        </form>
+        <script>
+            function get_token446t4(form) {
+                window.open('', 'formpopup', 'width=600,height=600,resizeable,scrollbars');
+                form.target = 'formpopup';
+            }
+        </script>
 
         <form action="options.php" method="post">
             <?php
@@ -128,8 +128,8 @@ function pb_options_page()
 {
     add_submenu_page(
         'options-general.php',
-        'TH Köln Projektbörse Einstellungen',
-        'THK Projektbörse',
+        'TH Köln Prox Einstellungen',
+        'THK Prox Client',
         'manage_options',
         'pboerse',
         'pb_options_page_html'

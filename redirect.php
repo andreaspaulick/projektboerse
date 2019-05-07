@@ -1,12 +1,12 @@
 <?php
-
-function pb_get_access_token() {
     if(isset($_GET['code']) && $_GET['state'] === 'E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT') {
+
         $code = $_GET["code"];
 
         $grant_type = "authorization_code";
-        //$redirect_uri = "http://localhost/wp/wordpress/wp-content/plugins/projektboerse/redirect.php";
-        $redirect_uri = rtrim($_SERVER['HTTP_REFERER'], '/').$_SERVER['PHP_SELF'];
+        $redirect_uri = "http://localhost/wp/wordpress/wp-content/plugins/projektboerse/redirect.php";
+        //$redirect_uri = rtrim($_SERVER['HTTP_REFERER'], '/').$_SERVER['PHP_SELF'];
+        //my_log_file2($_SERVER);
         $client_id = "wordpress-plugin";
         $url = "https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/token";
 
@@ -30,10 +30,21 @@ function pb_get_access_token() {
         $pb_access_token = $response['access_token'];
         $pb_refresh_token = $response['refresh_token'];
         //print_r($response);
-        echo "Access Token: ".$pb_access_token."<br /><br />";
-        echo "Refresh Token: ".$pb_refresh_token;
+        echo "<p style=\"word-break: break-all; word-wrap: break-word;\">Access Token: ".$pb_access_token."</p><br /><br />";
+        echo "<p style=\"word-break: break-all; word-wrap: break-word;\">Refresh Token: ".$pb_refresh_token."</p>";
 
     }
+
+function my_log_file2( $msg, $name = '' )
+{
+    // Print the name of the calling function if $name is left empty
+    $trace=debug_backtrace();
+    $name = ( '' == $name ) ? $trace[1]['function'] : $name;
+
+    $error_dir = '/home/andreas/Schreibtisch/pb_debug.log';
+    $msg = print_r( $msg, true );
+    $log = $name . "  |  " . $msg . "\n";
+    error_log( $log, 3, $error_dir );
 }
 
 

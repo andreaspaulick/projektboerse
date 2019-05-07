@@ -13,7 +13,13 @@ define( 'DEFAULT_API_URL' , 'http://localhost:8045/' ); // default link to the P
 define( 'DEFAULT_KEYCLOAK_API_URL' , 'http://localhost:8180/auth/realms/pboerse/protocol/openid-connect/token' ); // default link to the keycloak API
 define( 'PROX_TOKEN_API_URL' , 'https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/token' );
 
-define( 'USE_LOCAL_PB' , TRUE ); // here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
+define( 'USE_LOCAL_PB' , FALSE ); // here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
+
+// --- Temporary Constants:
+define ('PB_ACCESS_TOKEN', 'eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJua0RWOGY1cFZhaTBDSnJ0UHh3OEI1eHlUaFZqYlBiWTZEemlVdHc1M2hjIn0.eyJqdGkiOiIzODIwM2M4ZC05Y2QyLTQ3OWItYjUyMy00NGJlOGU2ZTUyMzIiLCJleHAiOjE1NTcyMjg2ODUsIm5iZiI6MCwiaWF0IjoxNTU3MjIxNDg1LCJpc3MiOiJodHRwczovL2xvZ2luLmNvYWxiYXNlLmlvL2F1dGgvcmVhbG1zL3Byb3giLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiMWIyOWU0MWUtYWFiMi00NzU3LThlYTItN2UyZGFjYTIwN2U2IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoid29yZHByZXNzLXBsdWdpbiIsImF1dGhfdGltZSI6MTU1NzIyMTQ4NSwic2Vzc2lvbl9zdGF0ZSI6IjQ4NzkzNjU2LTZjZDUtNDJhYS05MzU1LTFiMWY1YjQ1NzY3YiIsImFjciI6IjEiLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiRG96ZW50Iiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwibmFtZSI6IlByb2YuIERvemVudCIsInByZWZlcnJlZF91c2VybmFtZSI6ImRvemVudCIsImdpdmVuX25hbWUiOiJQcm9mLiIsImZhbWlseV9uYW1lIjoiRG96ZW50In0.T8FUuLJdIgqiKlkK20Ko7Mjtnomch0Xdfgth8SP-VQMjAtsFKHIn4tXYZkwqlfldvmUytPJyQ8XvFNxce3XQbDNHRAUziK4Ji3nJMMamCHHWjxw2wQii7NI9_xc5dJAY1jSvx8V9M9TTJfiK1tr5prNBlxiQW9-GIGS6iMOQ6q-elF86E2lBf6Yszph_He1XCCDDyAt_sBjtwyyJBEG27-uLSGLzUb-EWu89HE6csBn-twSOsxG2i9Pa-jbW5cucCxTdrxRvbMXvmbyFIooFJdpEPmeYJkLUnUYmUG6UF8C9PeE5CeUCUhpTtd4cMHwBvhGFpEL51AmgGj-dHPFzyg');
+define ('PB_REFRESH_TOKEN', '');
+define ('PB_USER_NAME', 'Prof. Dozent');
+// ---------------------------
 
 include 'redirect.php';
 include 'pb_options.php';
@@ -37,6 +43,13 @@ function post_published_api_call( $ID, $post) {
         $title = $post->post_title;
         $content = wp_strip_all_tags($post->post_content); // at the moment all tags are stripped (images won't be transferred)
 
+        if(metadata_exists( 'post', $post->ID, '_pb_wporg_meta_project_status' )){
+            $sup_name = get_post_meta($post->ID, '_pb_wporg_meta_supervisor', true);
+        }
+        else
+            $sup_name = get_option('pb_add_supervisor')['pb_add_supervisor_field'];
+
+
         // data for local DUMMY PROJEKTBÖRSE
         if(USE_LOCAL_PB === TRUE) {
             $post_data = array(
@@ -58,7 +71,7 @@ function post_published_api_call( $ID, $post) {
                 'description' => $content,
                 'name' => $title,
                 'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
-                'supervisorName' => get_option('pb_add_supervisor')['pb_add_supervisor_field'],
+                'supervisorName' => $sup_name
             );
         }
 
@@ -70,28 +83,29 @@ function post_published_api_call( $ID, $post) {
         if( metadata_exists( 'post', $post->ID, 'pb_project_id' )){ // means the project is edited
 
             // TODO: change URL to PB
-            $url2 = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/posts/id/'.$pb_project_id ;
+            //$url2 = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/posts/id/'.$pb_project_id ;
+            $url2 = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/projects/'.$pb_project_id ;
 
-            if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
-                $data = wp_remote_request($url2, array(
-                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8'),
-                    'body' => $json_post,
-                    'method' => 'PUT'
-                ));
-
-                // get and save the etag
-                $etag = wp_remote_retrieve_headers(
-                    wp_remote_get($url2)
-                )['etag'];
-                update_post_meta( $post->ID, 'pb_project_etag', $etag);
-            }
-            else { // use keycloak-authentication
-                $token_response = get_keycloak_token_response();
-                $keycloak_access_token = extract_keycloak_access_token($token_response);
-
-                if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
-                    return;
-                }
+//            if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
+//                $data = wp_remote_request($url2, array(
+//                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8'),
+//                    'body' => $json_post,
+//                    'method' => 'PUT'
+//                ));
+//
+//                // get and save the etag
+//                $etag = wp_remote_retrieve_headers(
+//                    wp_remote_get($url2)
+//                )['etag'];
+//                update_post_meta( $post->ID, 'pb_project_etag', $etag);
+//            }
+//            else { // use keycloak-authentication
+//                $token_response = get_keycloak_token_response();
+//                $keycloak_access_token = extract_keycloak_access_token($token_response);
+//
+//                if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
+//                    return;
+//                }
 
                 if(USE_LOCAL_PB === TRUE) {
                     $data = wp_remote_request($url2, array(
@@ -123,62 +137,114 @@ function post_published_api_call( $ID, $post) {
                     keycloak_session_logout($token_response);
                 }
                 else { // use official prox
-                    // TODO alter this block to work with official prox
+                    $data = wp_remote_request($url2, array(
+                        'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
+                            'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN),
+                        'body'          => json_encode( array(
+                            'id'            => $pb_project_id,
+                            // TODO creatorID ermitteln!
+                            'creatorID' => '1b29e41e-aab2-4757-8ea2-7e2daca207e6',
+                            // TODO creatorName ermitteln!
+                            'creatorName' => 'Prof. Dozent',
+                            'description' => $content,
+                            'name' => $title,
+                            'status' => get_post_meta($post->ID, '_pb_wporg_meta_project_status', true),
+                            'supervisorName' => $sup_name,
+                        )),
+                        'method' => 'PUT'
+                    ));
+
+                    // save the "modified" date for future comparison
+                    $modified = json_decode(wp_remote_retrieve_body(
+                        wp_remote_get($url2,
+                            array('headers' => array(
+                                'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)
+                            )
+                        )
+                    ), true)['modified'];
+                    update_post_meta( $post->ID, 'pb_project_modified', $modified);
+
+//                    // get and save the etag
+//                    $etag = wp_remote_retrieve_headers(
+//                        wp_remote_get($url2,
+//                            array('headers' => array(
+//                                'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)
+//                            )
+//                        )
+//                    )['etag'];
+//                    update_post_meta( $post->ID, 'pb_project_etag', $etag);
+//
+//                    //logout session
+//                    keycloak_session_logout($token_response);
                 }
 
-            }
-        }
+            //}
+        } // end projects exists
         else { // no previously saved project-id = new project
-            if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
-
-                $data = wp_remote_post($url, array(
-                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8'),
-                    'body' => $json_post,
-                    'method' => 'POST'
-                ));
-
-                // get and save the etag
-                $etag = wp_remote_retrieve_headers(
-                    wp_remote_get(rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/posts/id/' . json_decode(wp_remote_retrieve_body($data))->id)
-                )['etag'];
-                update_post_meta( $post->ID, 'pb_project_etag', $etag);
-
-                // save the id of the pb-project
-                update_post_meta( $post->ID, 'pb_project_id', json_decode(wp_remote_retrieve_body($data))->id);
-            }
-            else { // use keycloak-authentication
-                $token_response = get_keycloak_token_response();
-                $keycloak_access_token = extract_keycloak_access_token($token_response);
-
-                if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
-                    return;
-                }
+//            if(get_option('token_enable_checkbox')['token_enable']==="0") { // if true: don't use keycloak-authentication
+//
+//                $data = wp_remote_post($url, array(
+//                    'headers' => array( 'Content-Type' => 'application/json; charset=utf-8'),
+//                    'body' => $json_post,
+//                    'method' => 'POST'
+//                ));
+//
+//                // get and save the etag
+//                $etag = wp_remote_retrieve_headers(
+//                    wp_remote_get(rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/posts/id/' . json_decode(wp_remote_retrieve_body($data))->id)
+//                )['etag'];
+//                update_post_meta( $post->ID, 'pb_project_etag', $etag);
+//
+//                // save the id of the pb-project
+//                update_post_meta( $post->ID, 'pb_project_id', json_decode(wp_remote_retrieve_body($data))->id);
+//            }
+//            else { // use keycloak-authentication
+//                $token_response = get_keycloak_token_response();
+//                $keycloak_access_token = extract_keycloak_access_token($token_response);
+//
+//                if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
+//                    return;
+//                }
 
                 $data = wp_remote_post($url, array(
                     'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
-                        'Authorization' => 'Bearer ' . $keycloak_access_token),
+                        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN),
                     'body' => $json_post,
                     'method' => 'POST'
                 ));
-                // get and save the etag
-                $etag = wp_remote_retrieve_headers(
-                    wp_remote_get(rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/posts/id/' . json_decode(wp_remote_retrieve_body($data))->id,
+
+                // save the "modified" date for future comparison
+                $modified = json_decode(wp_remote_retrieve_body(
+                    wp_remote_get(rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects/' . json_decode(wp_remote_retrieve_body($data))->id,
                         array('headers' => array(
-                            'Authorization' => 'Bearer ' . $keycloak_access_token)
+                            'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)
                         )
                     )
-                )['etag'];
-                update_post_meta( $post->ID, 'pb_project_etag', $etag);
+                ), true)['modified'];
+                update_post_meta( $post->ID, 'pb_project_modified', $modified);
+
 
                 // save the id of the pb-project
                 update_post_meta( $post->ID, 'pb_project_id', json_decode(wp_remote_retrieve_body($data))->id);
-                //logout session
-                keycloak_session_logout($token_response);
-            }
+//                //logout session
+//                keycloak_session_logout($token_response);
+            //}
 
         }
 }
 add_action( 'publish_projects', 'post_published_api_call', 10, 2);
+
+function pb_keycloak_is_authenticated() {
+    $response = wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
+        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)));
+    $response_code = wp_remote_retrieve_response_code( $response );
+    if ($response_code === 200) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 
 // not only delete projects in wordpress, but also delete the corresponding entry in the pb via REST API
@@ -187,33 +253,34 @@ function pb_sync_delete_post($postid){
     $pb_project_id = get_post_meta($postid, 'pb_project_id', true);
 
     //TODO alter URL
-    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/posts/delete/'.$pb_project_id ;
+    //$url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/posts/delete/'.$pb_project_id ;
+    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/projects/'.$pb_project_id ;
 
-    if(get_option('token_enable_checkbox')['token_enable']==="0") { // don't use keycloak auth
+//    if(get_option('token_enable_checkbox')['token_enable']==="0") { // don't use keycloak auth
+//        if(isset(get_option('pb_sync_delete')['pb_sync_delete_field']) && get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
+//
+//            $response = wp_remote_request($url, array('method' => 'DELETE' ));
+//        }
+//    }
+//    else { // use keycloak auth
         if(isset(get_option('pb_sync_delete')['pb_sync_delete_field']) && get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
 
-            $response = wp_remote_request($url, array('method' => 'DELETE' ));
-        }
-    }
-    else { // use keycloak auth
-        if(isset(get_option('pb_sync_delete')['pb_sync_delete_field']) && get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
-
-            $token_response = get_keycloak_token_response();
-            $keycloak_access_token = extract_keycloak_access_token($token_response);
-
-            if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
-                return;
-            }
+//            $token_response = get_keycloak_token_response();
+//            $keycloak_access_token = extract_keycloak_access_token($token_response);
+//
+//            if ($keycloak_access_token === "TOKEN_REQUEST_ERROR"){
+//                return;
+//            }
 
             $response = wp_remote_request($url, array(
-                'headers' => array( 'Authorization' => 'Bearer ' . $keycloak_access_token),
+                'headers' => array( 'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN),
                 'method' => 'DELETE'
             ));
 
-            //logout session
-            keycloak_session_logout($token_response);
+//            //logout session
+//            keycloak_session_logout($token_response);
         }
-    }
+    //}
 }
 add_action('before_delete_post', 'pb_sync_delete_post');
 
@@ -254,42 +321,43 @@ function wpt_project_post_type() {
 add_action( 'init', 'wpt_project_post_type');
 
 
-// add a [sc_pb_meta] shortcode at the end of every project-type-post
-add_filter('the_content', 'modify_content');
-function modify_content($content) {
-    global $post;
+//// add a [sc_pb_meta] shortcode at the end of every project-type-post
+//add_filter('the_content', 'modify_content');
+//function modify_content($content) {
+//    global $post;
+//
+//    //TODO make a setting out of "is_archive"
+//    if($post->post_type === 'projects' && !is_archive())
+//        if(isset(get_option('pb_add_datetime')['pb_add_datetime_field'])) {
+//            return $content . "[sc_pb_meta]"."[sc_pb_meta_dateandtime]" ;
+//        }
+//        else
+//            return $content . "[sc_pb_meta]";
+//    else
+//        return $content;
+//}
 
-    //TODO make a setting out of "is_archive"
-    if($post->post_type === 'projects' && !is_archive())
-        if(isset(get_option('pb_add_datetime')['pb_add_datetime_field'])) {
-            return $content . "[sc_pb_meta]"."[sc_pb_meta_dateandtime]" ;
-        }
-        else
-            return $content . "[sc_pb_meta]";
-    else
-        return $content;
-}
-
-// add type-tags (PP, BA, MA) to the title
-add_filter('the_title', 'modify_title', 10, 2);
-
-function modify_title($title, $id) {
-    global $post;
-
-    // bugfix for themes (no post object available)
-    if( !is_object($post) )
-        return $title;
-
-    $types = get_post_meta($id, '_pb_wporg_meta_project_type', true);
-    $add_title = (isset(get_option('pb_add_type_tag')['pb_add_type_tag_field']) && "1" === get_option('pb_add_type_tag')['pb_add_type_tag_field']) ? 1 : 0;
-
-    if (!empty($types) && $post->post_type === 'projects' && $add_title === 1)
-        return "[".implode("/",$types)."] ".$title;
-    else
-        return $title;
-}
+//// add type-tags (PP, BA, MA) to the title
+//add_filter('the_title', 'modify_title', 10, 2);
+//
+//function modify_title($title, $id) {
+//    global $post;
+//
+//    // bugfix for themes (no post object available)
+//    if( !is_object($post) )
+//        return $title;
+//
+//    $types = get_post_meta($id, '_pb_wporg_meta_project_type', true);
+//    $add_title = (isset(get_option('pb_add_type_tag')['pb_add_type_tag_field']) && "1" === get_option('pb_add_type_tag')['pb_add_type_tag_field']) ? 1 : 0;
+//
+//    if (!empty($types) && $post->post_type === 'projects' && $add_title === 1)
+//        return "[".implode("/",$types)."] ".$title;
+//    else
+//        return $title;
+//}
 
 
+// TODO alter this function to fit PROX
 // defines what the shortcode should display
 function sc_pb_meta_function(){
     global $post;
@@ -356,7 +424,7 @@ function pb_wporg_add_custom_box()
     //foreach ($screens as $screen) {
         add_meta_box(
             'studiengang_wporg_box_id',           // Unique ID
-            'Projektattribute',  // Box title
+            'Prox Projektattribute',  // Box title
             'pb_custom_box_html',  // Content callback, must be of type callable
             'projects'                  // Post type
         );
@@ -364,6 +432,7 @@ function pb_wporg_add_custom_box()
 }
 add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 
+// TODO edit to fit PROX
 // HTML input fields for post metadata. Loads the last saved data!
 function pb_custom_box_html($post)
 {
@@ -388,6 +457,18 @@ function pb_custom_box_html($post)
     }
 
     ?>
+    <p>
+        <b>Auth Status: </b>
+        <?php
+            if(pb_keycloak_is_authenticated()===true) {
+                echo "<i> authentifiziert</i>";
+            }
+            else {
+                echo "<i> Keine Synchronisierung mit Prox möglich. Bitte <a href='https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth?client_id=wordpress-plugin&redirect_uri=".plugins_url('/projektboerse/redirect.php')."&response_type=code&scope=openid&state=E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT' target='_blank'>einloggen</a>!</i>";
+            }
+        ?>
+    </p>
+    
     <p>
         <input type="hidden" name="checkbox_value" value="1"/>
     </p>
@@ -430,6 +511,7 @@ function pb_custom_box_html($post)
     <?php
 }
 
+// TODO edit to fit PROX
 // save the pb-metabox data into a unique meta key
 function pb_wporg_save_postdata($post_id)
 {
@@ -480,82 +562,82 @@ function pb_wporg_save_postdata($post_id)
 add_action('publish_projects', 'pb_wporg_save_postdata', 9);
 
 
-function wp_post_to_html($wp_post_content){
-    $remove_tags = str_replace("<!-- /wp:paragraph -->","", str_replace("<!-- wp:paragraph -->","", $wp_post_content));
-    $replace_line_breaks = str_replace("\n","", str_replace("\n\n", "<br />", $remove_tags));
-    $remove_p = str_replace("</p>","", str_replace("<p>", "", $replace_line_breaks));
-    return $remove_p;
-}
+//function wp_post_to_html($wp_post_content){
+//    $remove_tags = str_replace("<!-- /wp:paragraph -->","", str_replace("<!-- wp:paragraph -->","", $wp_post_content));
+//    $replace_line_breaks = str_replace("\n","", str_replace("\n\n", "<br />", $remove_tags));
+//    $remove_p = str_replace("</p>","", str_replace("<p>", "", $replace_line_breaks));
+//    return $remove_p;
+//}
 
-function extract_keycloak_access_token($response){
-
-    if($response==="TOKEN_REQUEST_ERROR" || !is_array($response) && strpos($response, 'cURL error 7:') !== false)
-        return "TOKEN_REQUEST_ERROR";
-
-    $kc_response = json_decode($response['body']); // JSON to array
-
-    return $kc_response->access_token; // get access-token
-}
-
-function get_keycloak_token_response(){
-
-    $kc_url = get_option('token_api_url', array('token_url' => DEFAULT_KEYCLOAK_API_URL))['token_url'];
-    $kc_clientid = get_option('token_api_clientid')['token_clientid'];
-    $kc_username = get_option('token_api_username')['token_username'];
-    $kc_password = get_option('token_api_password')['token_password'];
-
-    // if URL does not start with 'http' return error message
-    if(strpos($kc_url,"http" )===false)
-        return "URL_MALFORMED";
-
-    $request_body = array(
-        'client_id' => $kc_clientid,
-        'username' => $kc_username,
-        'password' => $kc_password,
-        'grant_type' => 'password'
-    );
-
-    $response = wp_remote_post($kc_url, array(
-        'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded'),
-        'body' => http_build_query($request_body),
-        'method' => 'POST'
-    ));
-
-    if ( is_wp_error( $response ) ) {
-        $error_message = $response->get_error_message();
-        return $error_message;
-    }
-    else if($response['response']['code']!==200)
-        return "TOKEN_REQUEST_ERROR";
-
-    return $response;
-}
-
-function keycloak_session_logout($keycloak_token_response) {
-
-    if($keycloak_token_response==="TOKEN_REQUEST_ERROR")
-        return $keycloak_token_response;
-
-    $kc_clientid = get_option('token_api_clientid')['token_clientid'];
-    $refresh_token = json_decode($keycloak_token_response['body'])->refresh_token;  // get refresh-token
-
-    $url = preg_replace("/\btoken$/","logout", get_option('token_api_url', array('token_url' => DEFAULT_KEYCLOAK_API_URL))['token_url']);  // replace "token" endpoint with "logout" endpoint from Token-URL
-
-    $data = wp_remote_post($url, array(
-        'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded'),
-        'body' => http_build_query(array(
-            'client_id' => $kc_clientid,
-            'refresh_token' => $refresh_token)),
-        'method' => 'POST'
-    ));
-}
+//function extract_keycloak_access_token($response){
+//
+//    if($response==="TOKEN_REQUEST_ERROR" || !is_array($response) && strpos($response, 'cURL error 7:') !== false)
+//        return "TOKEN_REQUEST_ERROR";
+//
+//    $kc_response = json_decode($response['body']); // JSON to array
+//
+//    return $kc_response->access_token; // get access-token
+//}
+//
+//function get_keycloak_token_response(){
+//
+//    $kc_url = get_option('token_api_url', array('token_url' => DEFAULT_KEYCLOAK_API_URL))['token_url'];
+//    $kc_clientid = get_option('token_api_clientid')['token_clientid'];
+//    $kc_username = get_option('token_api_username')['token_username'];
+//    $kc_password = get_option('token_api_password')['token_password'];
+//
+//    // if URL does not start with 'http' return error message
+//    if(strpos($kc_url,"http" )===false)
+//        return "URL_MALFORMED";
+//
+//    $request_body = array(
+//        'client_id' => $kc_clientid,
+//        'username' => $kc_username,
+//        'password' => $kc_password,
+//        'grant_type' => 'password'
+//    );
+//
+//    $response = wp_remote_post($kc_url, array(
+//        'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded'),
+//        'body' => http_build_query($request_body),
+//        'method' => 'POST'
+//    ));
+//
+//    if ( is_wp_error( $response ) ) {
+//        $error_message = $response->get_error_message();
+//        return $error_message;
+//    }
+//    else if($response['response']['code']!==200)
+//        return "TOKEN_REQUEST_ERROR";
+//
+//    return $response;
+//}
+//
+//function keycloak_session_logout($keycloak_token_response) {
+//
+//    if($keycloak_token_response==="TOKEN_REQUEST_ERROR")
+//        return $keycloak_token_response;
+//
+//    $kc_clientid = get_option('token_api_clientid')['token_clientid'];
+//    $refresh_token = json_decode($keycloak_token_response['body'])->refresh_token;  // get refresh-token
+//
+//    $url = preg_replace("/\btoken$/","logout", get_option('token_api_url', array('token_url' => DEFAULT_KEYCLOAK_API_URL))['token_url']);  // replace "token" endpoint with "logout" endpoint from Token-URL
+//
+//    $data = wp_remote_post($url, array(
+//        'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded'),
+//        'body' => http_build_query(array(
+//            'client_id' => $kc_clientid,
+//            'refresh_token' => $refresh_token)),
+//        'method' => 'POST'
+//    ));
+//}
 
 // retrieves pretty study-course-list from PB REST API
 function get_pb_courses() {
 
     // TODO remove hardcoded URL before release:
-    //$url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/studyCourses';
-    $url = 'https://gpdev.archi-lab.io/studyCourses';
+    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/studyCourses';
+    //$url = 'https://gpdev.archi-lab.io/studyCourses';
 
     $response = wp_remote_get($url); // get study courses from PB API
     $response_body = json_decode($response['body'], TRUE); // we only need the body of the response
@@ -707,6 +789,23 @@ function array_column_recursive(array $haystack, $needle) {
 
 // neue Implementierung
 function pb_import_pb_projects() {
+    ?>
+<!--    <head>-->
+<!--        <script src="https://login.coalbase.io/auth/js/keycloak.js"></script>-->
+<!--        <script>-->
+<!--            var keycloak = Keycloak({-->
+<!--                url: 'https://login.coalbase.io/auth/',-->
+<!--                realm: 'prox',-->
+<!--                clientId: 'wordpress-plugin'-->
+<!--            });-->
+<!--            keycloak.init().success(function(authenticated) {-->
+<!--                alert(authenticated ? 'authenticated' : 'not authenticated');-->
+<!--            }).error(function() {-->
+<!--                alert('failed to initialize');-->
+<!--            });-->
+<!--        </script>-->
+<!--    </head>-->
+    <?php
     echo '<style>
             body, td, textarea, input, select, button {
               font-family: sans-serif;
@@ -742,7 +841,10 @@ function pb_import_pb_projects() {
               background-color: #dddddd;
             }
           </style>';
-
+    if(pb_keycloak_is_authenticated()===false) {
+        echo "unauthenticated";
+        exit;
+    }
     $projects = pb_get_projects();
     ?>
         <script>
@@ -784,9 +886,12 @@ function pb_import_pb_projects() {
     echo "<tbody style='height:395px;display:block;overflow:scroll'>";
     foreach ($projects as $p) {
 
-        if($p['user_login']=== wp_get_current_user()->user_login) {
+        //if($p['user_login']=== wp_get_current_user()->user_login) {
+        // TODO make hardcoded creatorName dynamic
+        if($p['creatorName']=== 'Prof. Dozent') {
             echo "<tr><td width=\"20%\"><input type='checkbox' name='myinput[]' value=" . $p['id'] . " id=". $p['id'] ." checked></td>";
-            echo "<td><label for=" . $p['id'] . ">".$p['title']."</label></td></tr>";
+            //echo "<td><label for=" . $p['id'] . ">".$p['title']."</label></td></tr>";
+            echo "<td><label for=" . $p['id'] . ">".$p['name']."</label></td></tr>";
         }
     }
     echo "</tbody>";
@@ -824,8 +929,8 @@ function pb_import_pb_projects_step2 (){
     }
     $count = 0;
 
-    $token_response = get_keycloak_token_response();
-    $keycloak_access_token = extract_keycloak_access_token($token_response);
+//    $token_response = get_keycloak_token_response();
+//    $keycloak_access_token = extract_keycloak_access_token($token_response);
 
         // build new post:
         foreach ($projects as $key) {
@@ -848,7 +953,7 @@ function pb_import_pb_projects_step2 (){
                     $etag = "";
 
                 $request_etag = wp_remote_retrieve_headers(wp_remote_get($url."/id/".$key['id'], array('headers' => array(
-                    'Authorization' => 'Bearer ' . $keycloak_access_token))))['etag'];
+                    'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN))))['etag'];
 
                 // TODO in this case we are blind for changes made inside PB. We sometimes need to import a project even if the ID exist, because someone might have changed something inside PB:
                 if ($key['user_login'] === wp_get_current_user()->user_login && empty($posts_array) && in_array($key['id'], $projects_to_import) && !empty($projects)) {  // only import if it's the users post AND if the post (the pb-project-id) is not already there
@@ -892,15 +997,80 @@ function pb_import_pb_projects_step2 (){
                 }
 
             }
-            else {
-                // TODO add support for official prox
+            else {  // USE PROX!!!!!!!!!!!!!
+                //search for the pb-id in all of the projects meta-keys:
+                $args = array(
+                    'meta_key' => 'pb_project_id',
+                    'meta_value' => $key['id'],
+                    'post_type' => 'projects',
+
+                );
+                $posts_array = get_posts($args); // $posts_array is empty = no post with this id = we can safely import
+
+                // TODO change etag implementation to last modified:
+                if( !empty($posts_array)  ) {
+                    //update_post_meta( $post->ID, 'pb_project_modified', $modified);
+                    $modified = get_post_meta($posts_array[0]->ID, 'pb_project_modified', true);
+                }
+                else
+                    $modified = "";
+
+                $server_modified = json_decode(wp_remote_retrieve_body(wp_remote_get($url."/".$key['id'], array('headers' => array(
+                    'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)))), true)['modified'];
+
+                my_log_file($modified, "gespeichert: ");
+                my_log_file($server_modified, "vom server: ");
+                my_log_file($url."/projects/".$key['id']);
+
+
+                if ($key['creatorName'] === 'Prof. Dozent' && empty($posts_array) && in_array($key['id'], $projects_to_import) && !empty($projects)) {  // only import if it's the users post AND if the post (the pb-project-id) is not already there
+                    $imported_project = array(
+                        'post_type' => 'projects',
+                        'post_title' => $key['name'],
+                        'post_content' => $key['description'],
+                        'post_status' => 'publish'
+                    );
+                    $post_id = wp_insert_post($imported_project);
+
+                    if(!is_wp_error($post_id))
+                        $count++;
+
+                    update_post_meta($post_id, 'pb_project_id', $key['id']); // add the pb-project id to the metadata, so we can sync-delete each post
+                    update_post_meta($post_id, '_pb_wporg_meta_project_status', $key['status']);
+                    update_post_meta($post_id, '_pb_wporg_meta_checkbox', 1);
+                    update_post_meta($post_id, '_pb_wporg_meta_supervisor', $key['supervisorName']);
+                    update_post_meta($post_id, 'pb_project_modified', $key['modified']);
+                }
+                // TODO etag implementation to last modified
+                else if (!empty($modified) && !empty($server_modified) && $modified!=$server_modified && in_array($key['id'], $projects_to_import) && !empty($projects)){  // if modified differ, update the post because it's not up-to-date
+                    $imported_project = array(
+                        'ID'           => $posts_array[0]->ID,
+                        'post_type' => 'projects',
+                        'post_title' => $key['name'],
+                        'post_content' => $key['description'],
+                        'post_status' => 'publish'
+                    );
+                    $post_id = wp_update_post($imported_project);
+
+                    if(!is_wp_error($post_id))
+                        $count++;
+
+                    update_post_meta($post_id, 'pb_project_id', $key['id']); // add the pb-project id to the metadata, so we can sync-delete each post
+                    update_post_meta($post_id, '_pb_wporg_meta_project_status', $key['status']);
+                    update_post_meta($post_id, '_pb_wporg_meta_checkbox', 1);
+                    update_post_meta($post_id, '_pb_wporg_meta_supervisor', $key['supervisorName']);
+                    update_post_meta($post_id, 'pb_project_modified', $key['modified']);
+                }
             }
         }
-        echo 'Projekte erfolgreich importiert: ' . $count;
+        echo 'Projekte importiert: ' . $count;
+        if (!empty($projects) && $count === 0) {
+            echo "<br /><br />Alle Projekte in der WordPress-Datenbank sind auf dem neuesten Stand.";
+        }
         echo "<br /><br /><button type='button' onclick='window.close()'>Schließen</button> ";
 
-        //logout session
-        keycloak_session_logout($token_response);
+//        //logout session
+//        keycloak_session_logout($token_response);
 
 }
 
@@ -913,15 +1083,15 @@ function pb_get_projects() {
         $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/posts'; // add json-consuming ressource to url. Strip last slash if present
     }
 
-    $token_response = get_keycloak_token_response();
-    $keycloak_access_token = extract_keycloak_access_token($token_response);
-
-    if ($keycloak_access_token === "TOKEN_REQUEST_ERROR") {
-        return;
-    }
+//    $token_response = get_keycloak_token_response();
+//    $keycloak_access_token = extract_keycloak_access_token($token_response);
+//
+//    if ($keycloak_access_token === "TOKEN_REQUEST_ERROR") {
+//        return;
+//    }
 
     $request = wp_remote_get($url, array('headers' => array('Content-Type' => 'application/json; charset=utf-8',
-        'Authorization' => 'Bearer ' . $keycloak_access_token)));
+        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)));
 
     if (is_wp_error($request) || wp_remote_retrieve_response_code( $request ) === 404){
         echo 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen.';
@@ -929,9 +1099,9 @@ function pb_get_projects() {
     }
 
     $request_body = wp_remote_retrieve_body($request);
-    //logout session
-    keycloak_session_logout($token_response);
-    return  json_decode($request_body, true);
+//    //logout session
+//    keycloak_session_logout($token_response);
+    return  json_decode($request_body, true)['_embedded']['projects'];
 }
 
 
