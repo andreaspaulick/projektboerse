@@ -1,4 +1,5 @@
 <?php
+$GLOBALS['prox_token'] = "hello";
     if(isset($_GET['code']) && $_GET['state'] === 'E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT') {
 
         $code = $_GET["code"];
@@ -29,9 +30,11 @@
         curl_close($curl);
         $pb_access_token = $response['access_token'];
         $pb_refresh_token = $response['refresh_token'];
-        //print_r($response);
-        echo "<p style=\"word-break: break-all; word-wrap: break-word;\">Access Token: ".$pb_access_token."</p><br /><br />";
-        echo "<p style=\"word-break: break-all; word-wrap: break-word;\">Refresh Token: ".$pb_refresh_token."</p>";
+//        echo "<p style=\"word-break: break-all; word-wrap: break-word;\">Access Token: ".$pb_access_token."</p><br /><br />";
+//        echo "<p style=\"word-break: break-all; word-wrap: break-word;\">Refresh Token: ".$pb_refresh_token."</p>";
+        echo "Token erhalten";
+        session_start();
+        $_SESSION['wejf4uergzu'] = $pb_access_token;
 
     }
 
