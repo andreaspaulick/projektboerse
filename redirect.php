@@ -99,18 +99,6 @@ $GLOBALS['prox_token'] = "hello";
 
     }
 
-function my_log_file2( $msg, $name = '' )
-{
-    // Print the name of the calling function if $name is left empty
-    $trace=debug_backtrace();
-    $name = ( '' == $name ) ? $trace[1]['function'] : $name;
-
-    $error_dir = '/home/andreas/Schreibtisch/pb_debug.log';
-    $msg = print_r( $msg, true );
-    $log = $name . "  |  " . $msg . "\n";
-    error_log( $log, 3, $error_dir );
-}
-
 
 
 

@@ -12,11 +12,6 @@ defined( 'ABSPATH' ) or exit;
 define( 'DEFAULT_API_URL' , 'https://gpdev.archi-lab.io/' ); // default link to the PB API
 define( 'DEFAULT_KEYCLOAK_API_URL' , 'https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/token' ); // default link to the keycloak API here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
 
-// --- Temporary Constants:
-define ('PB_ACCESS_TOKEN', '!eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJua0RWOGY1cFZhaTBDSnJ0UHh3OEI1eHlUaFZqYlBiWTZEemlVdHc1M2hjIn0.eyJqdGkiOiJjYWNmNDhhYi1hNWZjLTRiMzYtYTYyOS0yMjQ2NDRkMjFiNTciLCJleHAiOjE1NTcyNDg1NjQsIm5iZiI6MCwiaWF0IjoxNTU3MjQxMzY0LCJpc3MiOiJodHRwczovL2xvZ2luLmNvYWxiYXNlLmlvL2F1dGgvcmVhbG1zL3Byb3giLCJhdWQiOiJhY2NvdW50Iiwic3ViIjoiMWIyOWU0MWUtYWFiMi00NzU3LThlYTItN2UyZGFjYTIwN2U2IiwidHlwIjoiQmVhcmVyIiwiYXpwIjoid29yZHByZXNzLXBsdWdpbiIsImF1dGhfdGltZSI6MTU1NzIzNTYyOCwic2Vzc2lvbl9zdGF0ZSI6IjYwZGU4ODdlLThiNjQtNDA1Ni1iOTI0LWJhMmJhZWExMDQ5ZSIsImFjciI6IjAiLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiRG96ZW50Iiwib2ZmbGluZV9hY2Nlc3MiLCJ1bWFfYXV0aG9yaXphdGlvbiJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwiLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwibmFtZSI6IlByb2YuIERvemVudCIsInByZWZlcnJlZF91c2VybmFtZSI6ImRvemVudCIsImdpdmVuX25hbWUiOiJQcm9mLiIsImZhbWlseV9uYW1lIjoiRG96ZW50In0.Q9FEaJvbgRvDbCy971F9XhK1HE2ktQeFYXVW99OHmOtn5XurcAQps5EFnhpyYFTP7kWcM7Vsq4Efs9hTrW_O34VdqG9vYJ-9Zz49zivTvLJIgYFrkIGSFsqtUcoJVMvTm1bTwDbwa_PEnPdm1dUyYq90c2CHAZ5K6Iizo5xLmHIdElLAi_fFbIpDZn_6_j4DTa6EX0hkPby0BJh0NY9_xFj0fg1QZ9eKT5nZU0zB_FQmScv_FsHu6gemvPE4ZF43bIuvdOHV48W7KgLZQpS0V7HYPVjAWw4edOyzASJAP-dXbab-tudB4fAArUrtDD9DqDSR2DHluXlXMq_NvZDf3w');
-define ('PB_REFRESH_TOKEN', '');
-// ---------------------------
-
 include 'redirect.php';
 include 'pb_options.php';
 
@@ -170,15 +165,18 @@ function hide_publish_button() {
 function pb_init_values() {
 
     session_start();
+
+    // receive and save access token
     if(isset($_SESSION['wejf4uergzu'])) {
         $GLOBALS['pb_access_token'] = $_SESSION['wejf4uergzu'];
     }
     else
         $GLOBALS['pb_access_token'] = "";
 
+    // send redirect-uri to redirect.php
     $_SESSION['pb_plugins_url'] = plugins_url('/projektboerse/redirect.php');
 
-
+    // get the name of the currently logged-in keycloak user
     if(!isset($GLOBALS['prox_username']) && wp_remote_retrieve_response_code(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
             'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))) === 200){
         $GLOBALS['prox_username'] = json_decode(wp_remote_retrieve_body(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
@@ -187,6 +185,7 @@ function pb_init_values() {
     else
         $GLOBALS['prox_username'] = "none";
 
+    // send token-endpoint uri to redirect.php
     $_SESSION['pb_oauth_token_uri'] = get_option('token_api_url')['token_url'];
 }
 add_action( 'init', 'pb_init_values');
@@ -294,6 +293,7 @@ add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 function pb_custom_box_html($post)
 {
     $meta = get_post_meta( $post->ID );
+    $study_courses = pb_get_studyCourses();
 
     if(!isset( $meta['_pb_wporg_meta_checkbox'][0])){  // if meta-key is unset it means that we are about to create a new post
         $checkbox_value = (isset(get_option('pb_send_to_pb')['pb_send_to_pb_field'])) ? 1 : 0;  // set default value for checkbox depending on user settings
@@ -340,6 +340,22 @@ function pb_custom_box_html($post)
     <p>
         <label for="pb_wporg_project_supervisor"><strong>Name des Projektbetreuers:</strong><br /></label>
         <input type="text" name="pb_wporg_project_supervisor" id="pb_wporg_project_supervisor" value="<?php echo $supervisor?>" >
+    </p>
+<!--    ------------- study courses and attached modules -------->
+    <p>
+        <label><strong>Projekt verfügbar für:</strong><br /></label>
+        <?php
+            foreach ($study_courses as $key) {
+                $modules = pb_get_studyCoursesModules($key['_links']['modules']['href']);
+                echo "<i><p><b>".$key['name']." (".$key['academicDegree'].")</b></p>";
+                foreach ($modules as $key2) {
+                    echo "<input type='checkbox' id='".$key2['id']."' name='studyModules[]' value='".$key2['id']."'>  ";
+                    echo "<label for='".$key2['id']."'>".$key2['name']."&nbsp;&nbsp;&nbsp;&nbsp;</label>";
+                }
+                echo "</i>";
+
+            }
+        ?>
     </p>
 
     <?php
@@ -428,6 +444,20 @@ function get_pb_courses() {
 
    return $courses;
 }
+
+// generates an array of study courses and its modules
+function pb_get_studyCourses() {
+    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projectStudyCourses';
+    $response = wp_remote_get($url);
+    return json_decode($response['body'], TRUE)['_embedded']['projectStudyCourses'];
+}
+
+function pb_get_studyCoursesModules($url) {
+    //$url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projectStudyCourses';
+    $response = wp_remote_get($url);
+    return json_decode($response['body'], TRUE)['_embedded']['projectModules'];
+}
+//add_action( 'init', 'pb_get_studyCourses');
 
 // get all values of a multidimensional array
 function array_column_recursive(array $haystack, $needle) {
