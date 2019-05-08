@@ -146,7 +146,7 @@ function pb_sync_delete_post($postid){
 add_action('before_delete_post', 'pb_sync_delete_post');
 
 // deactivate publish button
-//add_action('admin_head', 'hide_publish_button');
+add_action('admin_head', 'hide_publish_button');
 function hide_publish_button() {
     global $post;
 

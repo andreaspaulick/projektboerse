@@ -140,7 +140,7 @@ function plugin_admin_init()
 }
 
 function plugin_section_text() {
-    echo '<p>Geben Sie hier die API-URL zu Prox (Projektbörse der TH Köln) an.<br>Über diese API werden mittels diesem Clients Projekte in der Projektbörse verwaltet und ein lokaler Cache in WordPress angelegt</p>';
+    echo '<p>Geben Sie hier die API-URL zu Prox (Projektbörse der TH Köln) an.<br>Über diese API werden mittels diesem Client Projekte in der Projektbörse verwaltet und ein lokaler Cache in WordPress angelegt</p>';
 }
 
 function token_section_text() {
