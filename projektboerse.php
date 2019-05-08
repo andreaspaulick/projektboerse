@@ -24,8 +24,6 @@ include 'pb_options.php';
  * post Variable Reference: https://codex.wordpress.org/Function_Reference/$post
  */
 function post_published_api_call( $ID, $post) {
-    //my_log_file($GLOBALS['prox_token']);
-
 
     if( get_post_meta($post->ID, '_pb_wporg_meta_checkbox', true) !== "1" ) return; // return (do nothing) if checkbox "also send to pb" is not checked
 
@@ -66,7 +64,7 @@ function post_published_api_call( $ID, $post) {
 
             $data = wp_remote_request($url2, array(
                 'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
-                    'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN),
+                    'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token']),
                 'body'          => json_encode( array(
                     'id'            => $pb_project_id,
                     // TODO creatorID ermitteln!
@@ -84,7 +82,7 @@ function post_published_api_call( $ID, $post) {
             $modified = json_decode(wp_remote_retrieve_body(
                 wp_remote_get($url2,
                     array('headers' => array(
-                        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)
+                        'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])
                     )
                 )
             ), true)['modified'];
@@ -95,7 +93,7 @@ function post_published_api_call( $ID, $post) {
 
             $data = wp_remote_post($url, array(
                 'headers' => array( 'Content-Type' => 'application/json; charset=utf-8',
-                    'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN),
+                    'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token']),
                 'body' => $json_post,
                 'method' => 'POST'
             ));
@@ -104,7 +102,7 @@ function post_published_api_call( $ID, $post) {
             $modified = json_decode(wp_remote_retrieve_body(
                 wp_remote_get(rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects/' . json_decode(wp_remote_retrieve_body($data))->id,
                     array('headers' => array(
-                        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)
+                        'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])
                     )
                 )
             ), true)['modified'];
@@ -119,7 +117,7 @@ add_action( 'publish_projects', 'post_published_api_call', 10, 2);
 
 function pb_keycloak_is_authenticated() {
     $response = wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
-        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)));
+        'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])));
     $response_code = wp_remote_retrieve_response_code( $response );
     if ($response_code === 200) {
         return true;
@@ -140,24 +138,56 @@ function pb_sync_delete_post($postid){
     if(isset(get_option('pb_sync_delete')['pb_sync_delete_field']) && get_option('pb_sync_delete')['pb_sync_delete_field']==="1" && $post_type == 'projects'){
 
         $response = wp_remote_request($url, array(
-            'headers' => array( 'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN),
+            'headers' => array( 'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token']),
             'method' => 'DELETE'
         ));
     }
 }
 add_action('before_delete_post', 'pb_sync_delete_post');
 
-// init some values so
-function pb_init_values() {
-    if(isset($GLOBALS['prox_username'])){
-        $GLOBALS['prox_username'] = $response = json_decode(wp_remote_retrieve_body(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
-            'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)))), true)['name'];
+// deactivate publish button
+//add_action('admin_head', 'hide_publish_button');
+function hide_publish_button() {
+    global $post;
+
+    if (!isset($post->post_type)){
+        return;
     }
 
-    //TODO check if this works
+    if(pb_keycloak_is_authenticated() && $post->post_type === 'projects') {
+        return;
+    }
+    ?>
+    <script type="text/javascript">
+        window.onload = function() {
+            document.getElementById('publish').disabled = true;
+        }
+    </script>
+    <?php
+}
+
+// init some important globals
+function pb_init_values() {
+
     session_start();
-    $GLOBALS['pb_access_token'] = $_SESSION['wejf4uergzu'];
-    my_log_file($GLOBALS['pb_access_token']);
+    if(isset($_SESSION['wejf4uergzu'])) {
+        $GLOBALS['pb_access_token'] = $_SESSION['wejf4uergzu'];
+    }
+    else
+        $GLOBALS['pb_access_token'] = "";
+
+    $_SESSION['pb_plugins_url'] = plugins_url('/projektboerse/redirect.php');
+
+
+    if(!isset($GLOBALS['prox_username']) && wp_remote_retrieve_response_code(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
+            'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))) === 200){
+        $GLOBALS['prox_username'] = json_decode(wp_remote_retrieve_body(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
+            'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))), true)['name'];
+    }
+    else
+        $GLOBALS['prox_username'] = "none";
+
+    $_SESSION['pb_oauth_token_uri'] = get_option('token_api_url')['token_url'];
 }
 add_action( 'init', 'pb_init_values');
 
@@ -285,13 +315,13 @@ function pb_custom_box_html($post)
 
     ?>
     <p>
-        <b>Auth Status: </b>
+        <b>Status der Autorisierung: </b>
         <?php
             if(pb_keycloak_is_authenticated()===true) {
-                echo "<i> authentifiziert</i>";
+                echo "<b><a style=\"color:green\"> <br />Authentifiziert &check;</a></b>";
             }
             else {
-                echo "<i> Keine Synchronisierung mit Prox möglich. Bitte <a href='https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth?client_id=wordpress-plugin&redirect_uri=".plugins_url('/projektboerse/redirect.php')."&response_type=code&scope=openid&state=E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT' target='_blank'>einloggen</a>!</i>";
+                echo "<b><text style=\"color:red\"> <br />&cross; Keine Synchronisierung mit Prox möglich: es können keine Projekte veröffentlicht werden. Bitte vorher <a href='https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth?client_id=wordpress-plugin&redirect_uri=".plugins_url('/projektboerse/redirect.php')."&response_type=code&scope=openid&state=E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT' target='_blank'>einloggen</a>!</text></b>";
             }
         ?>
     </p>
@@ -471,7 +501,7 @@ function pb_import_pb_projects() {
     <?php
 
     echo "<h1>Projekt-Synchronisation</h1>";
-    echo "Die folgende Liste zeigt alle Ihre in der Projektbörse befindlichen Projekte. Sie können diese normalerweise alle ausgewählt lassen, da nur nicht vorhandene bzw. geänderte Projekte importiert/synchronisiert werden.<br/><br/>";
+    echo "Die folgende Liste zeigt alle Ihre in der Projektbörse befindlichen Projekte. Sie können diese normalerweise alle ausgewählt lassen, da nur in WordPress nicht vorhandene bzw. in Prox geänderte Projekte importiert/synchronisiert werden.<br/><br/>";
 
     echo "<form action=". admin_url('admin-post.php') ." method='post'>";
     echo "<button type='button' onclick='checkedall()'>Alle auswählen</button> ";
@@ -530,6 +560,30 @@ function pb_import_pb_projects_step2 (){
     $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
 
     $count = 0;
+    $deleted = 0;
+
+
+    // delete projects in wordpress which are not present in prox (if the setting is checked)
+    if (isset(get_option('pb_smart_delete_on_import')['pb_smart_delete_on_import_field'])) {
+        $all_wp_projects = get_posts(array(
+            'post_type' => 'projects',
+        ));
+
+        foreach ($all_wp_projects as $key) {
+            $found = false;
+
+            foreach ($projects as $p) {
+                if (get_post_meta($key->ID, 'pb_project_id', true) == $p['id']){
+                    $found = true;
+                }
+            }
+            if($found === false) {
+                wp_delete_post($key->ID);
+                $deleted++;
+            }
+        }
+    }
+
 
     // build new post:
     foreach ($projects as $key) {
@@ -552,7 +606,7 @@ function pb_import_pb_projects_step2 (){
 
         // retrieve the 'modified' date and time from prox-server
         $server_modified = json_decode(wp_remote_retrieve_body(wp_remote_get($url."/".$key['id'], array('headers' => array(
-            'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)))), true)['modified'];
+            'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))), true)['modified'];
 
         // import project in wordpress if it's not here
         // TODO make creatorName dynamic
@@ -602,6 +656,9 @@ function pb_import_pb_projects_step2 (){
         }
     }
     echo 'Projekte importiert: ' . $count;
+    if($deleted > 0) {
+        echo '<br />Projekte aus WP gelöscht: ' . $deleted;
+    }
     if (!empty($projects_to_import) && $count === 0) {
         echo "<br /><br />Alle Projekte in der WordPress-Datenbank sind auf dem neuesten Stand.";
     }
@@ -614,7 +671,7 @@ function pb_get_projects() {
     $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
 
     $request = wp_remote_get($url, array('headers' => array('Content-Type' => 'application/json; charset=utf-8',
-        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)));
+        'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])));
 
     if (is_wp_error($request) || wp_remote_retrieve_response_code( $request ) === 404){
         echo 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen.';

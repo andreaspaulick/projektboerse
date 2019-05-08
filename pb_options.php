@@ -119,6 +119,10 @@ function plugin_admin_init()
     register_setting('pb_settings_input', 'pb_add_datetime');
     add_settings_field('pb_add_datetime_field', 'Zeistempel hinzufügen', 'pb_add_datetime3478', 'pb_settings_input', 'pb_misc_settings');
 
+    // on import, delete projects in wordpress which are not present in prox
+    register_setting('pb_settings_input', 'pb_smart_delete_on_import');
+    add_settings_field('pb_smart_delete_on_import_field', 'Lösche bei Import', 'pb_add_smart_delete_on_import', 'pb_settings_input', 'pb_misc_settings');
+
     // enter standard-supervisor-name
     register_setting('pb_settings_input', 'pb_add_supervisor');
     add_settings_field('pb_add_supervisor_field', 'Standard Betreuer Name', 'pb_add_supervisor3478', 'pb_settings_input', 'pb_misc_settings');
@@ -145,6 +149,16 @@ function token_section_text() {
 
 function pb_misc_settings_text(){
     echo '<p>Allgemeine Einstellungen</p>';
+}
+
+function pb_add_smart_delete_on_import() {
+    $options = get_option('pb_smart_delete_on_import', array('pb_smart_delete_on_import_field' => '1'));
+    $checkbox_value = (isset( $options['pb_smart_delete_on_import_field'] )  && '1' === $options['pb_smart_delete_on_import_field'][0] ) ? 1 : 0;
+
+    ?>
+    <input type="checkbox" id="pb_smart_delete_on_import" name='pb_smart_delete_on_import[pb_smart_delete_on_import_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
+    <label for="pb_smart_delete_on_import"><i>Entferne beim Importieren der eigenen Projekte aus Prox all die WordPress Projekte, die in Prox nicht existieren</i></label>
+    <?php
 }
 
 function pb_sync_delete3478(){
