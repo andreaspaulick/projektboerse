@@ -459,7 +459,7 @@ add_action('publish_projects', 'pb_wporg_save_postdata', 9);
 function pb_get_studyCourses() {
     $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projectStudyCourses';
     $response = wp_remote_get($url);
-    if(true) return "API nicht erreichbar";
+    if(is_wp_error($response) || wp_remote_retrieve_response_code( $response ) === 404) return "API nicht erreichbar";
     else return json_decode($response['body'], TRUE)['_embedded']['projectStudyCourses'];
 }
 
