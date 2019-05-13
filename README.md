@@ -1,2 +1,2 @@
-# TH Köln Projektbörse WordPress-Plugin
-Klont veröffentlichte Beiträge aus WordPress in die Projektbörse der TH Köln.
+# TH Köln Prox WordPress-Plugin
+WordPress Client für die Projektbörse der TH-Köln.
