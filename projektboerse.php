@@ -25,12 +25,12 @@ function post_published_api_call( $ID, $post) {
         $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
 
         $title = $post->post_title;
+        if (empty($title)) {
+            $title = "[kein titel]";
+        }
         $content = wp_strip_all_tags($post->post_content); // at the moment all tags are stripped (images won't be transferred)
 
-        // retrieve the name of the keycloak-login from userinfo endpoint
-//        $creator_name = $response = json_decode(wp_remote_retrieve_body(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
-//        'Authorization' => 'Bearer ' . PB_ACCESS_TOKEN)))), true)['name'];
-
+        // get the supervisor name from meta key if it exists. optherwise get the default supervisor name from settings page
         if(metadata_exists( 'post', $post->ID, '_pb_wporg_meta_project_status' )){
             $sup_name = get_post_meta($post->ID, '_pb_wporg_meta_supervisor', true);
         }
@@ -190,6 +190,10 @@ function pb_init_values() {
 }
 add_action( 'init', 'pb_init_values');
 
+function generateRandomString($length = 50) {
+    return hash('sha512', substr(str_shuffle(str_repeat($x='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', ceil($length/strlen($x)) )),1,$length));
+}
+
 // custom post-type "projects":
 function wpt_project_post_type() {
     $labels = array(
@@ -267,13 +271,14 @@ function sc_pb_meta_function(){
 }
 add_shortcode('sc_pb_meta', 'sc_pb_meta_function');
 
+// determine the creation date and time of the current projekt
 function sc_pb_meta_dateandtime(){
     global $post;
     return "<span style='font-size: 10px;'> <i>Projekt erstellt am: ".get_the_date("d. F Y, H:i", $post->ID)." Uhr</i></span>";
 }
 add_shortcode('sc_pb_meta_dateandtime', 'sc_pb_meta_dateandtime');
 
-// Add custom metabox paragraph for THK projects on "post" and "wporg_cpt" pages
+// Add custom metabox paragraph for THK projects on project pages
 function pb_wporg_add_custom_box()
 {
     //$screens = ['post', 'wporg_cpt'];
@@ -345,6 +350,11 @@ function pb_custom_box_html($post)
     <p>
         <label><strong>Projekt verfügbar für:</strong><br /></label>
         <?php
+            if(!is_array($study_courses)) {
+                echo "[ " . $study_courses . " ]";
+                return;
+            }
+
             foreach ($study_courses as $key) {
                 $modules = pb_get_studyCoursesModules($key['_links']['modules']['href']);
                 echo "<i><p><b>".$key['name']." (".$key['academicDegree'].")</b></p>";
@@ -411,45 +421,46 @@ function pb_wporg_save_postdata($post_id)
 }
 add_action('publish_projects', 'pb_wporg_save_postdata', 9);
 
-// retrieves pretty study-course-list from PB REST API
-function get_pb_courses() {
-
-    // TODO remove hardcoded URL before release:
-    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/studyCourses';
-    //$url = 'https://gpdev.archi-lab.io/studyCourses';
-
-    $response = wp_remote_get($url); // get study courses from PB API
-    $response_body = json_decode($response['body'], TRUE); // we only need the body of the response
-    if(array_key_exists('status', $response_body) && $response_body['status']===404) // if status=404 the api was not found
-        return array("ERROR: Could not retrieve API data...");
-
-    $courses = array_column_recursive($response_body,'name'); // go get all study courses
-    $degree = array_column_recursive($response_body, 'academicDegree'); // get the academic degree of all couses
-
-    $id = array();
-
-    // dirty implementation to get the ID of each course (which in fact is the self href in the projektbörse api)
-    for ($i = 0; $i < count($courses); $i++) {
-        array_push($id, $response_body['_embedded']['studyCourses'][$i]['id']);
-    }
-
-    // we substitute the index number-key (0, 1, 2, ...) of the course array with the "href-ID" of the API as the key
-    for ($i = 0; $i < count($courses); $i++) {
-        $courses[$i] = $courses[$i].' ('.$degree[$i].')'; // course name + academic degree = new full course name
-
-        // key substitution:
-        $courses[$id[$i]] = $courses[$i];
-        unset($courses[$i]);
-    }
-
-   return $courses;
-}
+//// retrieves pretty study-course-list from PB REST API
+//function get_pb_courses() {
+//
+//    // TODO remove hardcoded URL before release:
+//    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/studyCourses';
+//    //$url = 'https://gpdev.archi-lab.io/studyCourses';
+//
+//    $response = wp_remote_get($url); // get study courses from PB API
+//    $response_body = json_decode($response['body'], TRUE); // we only need the body of the response
+//    if(array_key_exists('status', $response_body) && $response_body['status']===404) // if status=404 the api was not found
+//        return array("ERROR: Could not retrieve API data...");
+//
+//    $courses = array_column_recursive($response_body,'name'); // go get all study courses
+//    $degree = array_column_recursive($response_body, 'academicDegree'); // get the academic degree of all couses
+//
+//    $id = array();
+//
+//    // dirty implementation to get the ID of each course (which in fact is the self href in the projektbörse api)
+//    for ($i = 0; $i < count($courses); $i++) {
+//        array_push($id, $response_body['_embedded']['studyCourses'][$i]['id']);
+//    }
+//
+//    // we substitute the index number-key (0, 1, 2, ...) of the course array with the "href-ID" of the API as the key
+//    for ($i = 0; $i < count($courses); $i++) {
+//        $courses[$i] = $courses[$i].' ('.$degree[$i].')'; // course name + academic degree = new full course name
+//
+//        // key substitution:
+//        $courses[$id[$i]] = $courses[$i];
+//        unset($courses[$i]);
+//    }
+//
+//   return $courses;
+//}
 
 // generates an array of study courses and its modules
 function pb_get_studyCourses() {
     $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projectStudyCourses';
     $response = wp_remote_get($url);
-    return json_decode($response['body'], TRUE)['_embedded']['projectStudyCourses'];
+    if(true) return "API nicht erreichbar";
+    else return json_decode($response['body'], TRUE)['_embedded']['projectStudyCourses'];
 }
 
 function pb_get_studyCoursesModules($url) {
@@ -552,8 +563,7 @@ function pb_import_pb_projects() {
     echo "<tbody style='height:395px;display:block;overflow:scroll'>";
     foreach ($projects as $p) {
 
-        // TODO make hardcoded creatorName dynamic
-        if($p['creatorName']=== 'Prof. Dozent') {
+        if($p['creatorName']=== $GLOBALS['prox_username']) {
             echo "<tr><td width=\"20%\"><input type='checkbox' name='myinput[]' value=" . $p['id'] . " id=". $p['id'] ." checked></td>";
             //echo "<td><label for=" . $p['id'] . ">".$p['title']."</label></td></tr>";
             echo "<td><label for=" . $p['id'] . ">".$p['name']."</label></td></tr>";
@@ -585,15 +595,13 @@ function pb_import_pb_projects_step2 (){
 
     $projects = pb_get_projects();
 
-    // TODO alter URL
-
     $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
 
     $count = 0;
     $deleted = 0;
 
 
-    // delete projects in wordpress which are not present in prox (if the setting is checked)
+    // delete projects in wordpress which are not present in prox (if the corresponding checkbox is checked)
     if (isset(get_option('pb_smart_delete_on_import')['pb_smart_delete_on_import_field'])) {
         $all_wp_projects = get_posts(array(
             'post_type' => 'projects',
@@ -658,7 +666,7 @@ function pb_import_pb_projects_step2 (){
             update_post_meta($post_id, '_pb_wporg_meta_supervisor', $key['supervisorName']);
             update_post_meta($post_id, 'pb_project_modified', $key['modified']);
         }
-        // validating the cache: if the project is already in the wordpress cache,
+        // validating the view: if the project is already in wordpress,
         // we need to check every post for changes on the server side
         // (compare local 'modified' value with the prox server value):
         else if (   !empty($modified) &&
@@ -705,7 +713,7 @@ function pb_get_projects() {
 
     if (is_wp_error($request) || wp_remote_retrieve_response_code( $request ) === 404){
         echo 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen.';
-        return;
+        exit;
     }
 
     $request_body = wp_remote_retrieve_body($request);

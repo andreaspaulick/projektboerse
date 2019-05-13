@@ -1,5 +1,4 @@
 <?php
-$GLOBALS['prox_token'] = "hello";
     if(isset($_GET['code']) && $_GET['state'] === 'E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT') {
 
         session_start();

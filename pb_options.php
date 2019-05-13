@@ -121,7 +121,7 @@ function plugin_admin_init()
 
     // on import, delete projects in wordpress which are not present in prox
     register_setting('pb_settings_input', 'pb_smart_delete_on_import');
-    add_settings_field('pb_smart_delete_on_import_field', 'Lösche bei Import', 'pb_add_smart_delete_on_import', 'pb_settings_input', 'pb_misc_settings');
+    add_settings_field('pb_smart_delete_on_import_field', 'Lösche bei Synchronisierung', 'pb_add_smart_delete_on_import', 'pb_settings_input', 'pb_misc_settings');
 
     // enter standard-supervisor-name
     register_setting('pb_settings_input', 'pb_add_supervisor');
@@ -157,7 +157,7 @@ function pb_add_smart_delete_on_import() {
 
     ?>
     <input type="checkbox" id="pb_smart_delete_on_import" name='pb_smart_delete_on_import[pb_smart_delete_on_import_field]' value="1" <?php checked( $checkbox_value, 1); ?> >
-    <label for="pb_smart_delete_on_import"><i>Entferne beim Importieren der eigenen Projekte aus Prox all die WordPress Projekte, die in Prox nicht existieren</i></label>
+    <label for="pb_smart_delete_on_import"><i>Entferne bei der Synchronisierung der eigenen Projekte aus Prox all die WordPress Projekte, die in Prox nicht existieren</i></label>
     <?php
 }
 
