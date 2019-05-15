@@ -1,8 +1,7 @@
 <?php
 $GLOBALS['disabled'] = "";
 
-function pb_options_page_html($post_data)
-{
+function pb_options_page_html($post_data){
     // check user capabilities
     if (!current_user_can('manage_options')) {
         return;
@@ -20,11 +19,6 @@ function pb_options_page_html($post_data)
                 form.target = 'formpopup';
             }
         </script>
-
-<!--        <br /><form action="--><?php //echo admin_url('admin-post.php');?><!--" method="post">-->
-<!--            <input type="hidden" name="action" value="pb_auth_code_grant">-->
-<!--            --><?php //submit_button( 'Authentifizierung', 'secondary', "" ,false ); ?>
-<!--        </form>-->
 
         <br /><form action="https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth" method="post" onsubmit="get_token446t4(this)">
             <input type="hidden" name="client_id" value="wordpress-plugin" />
@@ -53,44 +47,7 @@ function pb_options_page_html($post_data)
     </div>
     <?php
 }
-
-//add_action( 'admin_post_tokencheck534547', 'tokencheck534547' );
 add_action( 'admin_post_pb_import_pb_projects', 'pb_import_pb_projects' );
-//add_action( 'admin_post_pb_auth_code_grant', 'pb_auth_code_grant' );
-
-//function pb_auth_code_grant () {
-//    //$url = "https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth";
-//
-//    wp_redirect("https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth?client_id=wordpress-plugin&redirect_uri=".plugins_url('/projektboerse/redirect.php')."&response_type=code&scope=openid&state=E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT");
-
-//    $response = wp_remote_request($url, array(
-//        'headers' => array( 'Content-Type'      => 'application/x-www-form-urlencoded; charset=utf-8',
-//                            'client_id'         => 'wordpress-plugin',
-//                            'redirect_uri'      => admin_url('admin-post.php'),
-//                            'response_type'     => 'code',
-//                            'scope'             => 'openid',
-//                            'state'             => 'E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT'
-//            ),
-//        'method' => 'POST'
-//    ));
-//    $request_body = array(
-//        'client_id'         => 'wordpress-plugin',
-//        'redirect_uri'      => admin_url('options-general.php?page=pboerse'),
-//        'response_type'     => 'code',
-//        'scope'             => 'openid',
-//        'state'             => 'E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT'
-//    );
-//
-//    $response = wp_remote_post($url, array(
-//        'headers' => array( 'Content-Type' => 'application/x-www-form-urlencoded'),
-//        'body' => http_build_query($request_body),
-//        'method' => 'POST'
-//    ));
-//    my_log_file($response);
-
-//    exit;
-//}
-//add_action( 'admin_post_pb_auth_code_grant', 'pb_auth_code_grant' );
 
 function pb_options_page()
 {
@@ -125,22 +82,22 @@ function plugin_admin_init()
 
     // enter standard-supervisor-name
     register_setting('pb_settings_input', 'pb_add_supervisor');
-    add_settings_field('pb_add_supervisor_field', 'Standard Betreuer Name', 'pb_add_supervisor3478', 'pb_settings_input', 'pb_misc_settings');
+    add_settings_field('pb_add_supervisor_field', 'Standard Betreuername', 'pb_add_supervisor3478', 'pb_settings_input', 'pb_misc_settings');
 
     // Path to Projektbörse API
     register_setting('pb_settings_input', 'pb_api_url');
-    add_settings_section('plugin_main', 'Pfad zur Projektbörse API', 'plugin_section_text', 'pb_settings_input');
-    add_settings_field('pb_url', 'URL:', 'pb_api_url2432425', 'pb_settings_input', 'plugin_main');
+    add_settings_section('plugin_main', 'Prox URL', 'plugin_section_text', 'pb_settings_input');
+    add_settings_field('pb_url', 'Prox URL:', 'pb_api_url2432425', 'pb_settings_input', 'plugin_main');
 
     add_settings_section('plugin_main_token', 'Keycloak Access-Token Anforderung', 'token_section_text', 'pb_settings_input');
 
     // Keycloak Access-Token-API URL
     register_setting('pb_settings_input', 'token_api_url');
-    add_settings_field('token_url', 'Keycloak Token API URL:', 'token_setting_url', 'pb_settings_input', 'plugin_main_token');
+    add_settings_field('token_url', 'Keycloak Token Endpoint URL:', 'token_setting_url', 'pb_settings_input', 'plugin_main_token');
 }
 
 function plugin_section_text() {
-    echo '<p>Geben Sie hier die API-URL zu Prox (Projektbörse der TH Köln) an.<br>Über diese API werden mittels diesem Client Projekte in der Projektbörse verwaltet und ein lokaler Cache in WordPress angelegt</p>';
+    echo '<p>Geben Sie hier die URL zu Prox (Projektbörse der TH Köln) an.<br>Über die API von Prox können mit diesem Client Projekte in der Projektbörse verwaltet werden</p>';
 }
 
 function token_section_text() {

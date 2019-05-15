@@ -385,7 +385,7 @@ function pb_wporg_save_postdata($post_id)
         update_post_meta(
             $post_id,
             '_pb_wporg_meta_supervisor',
-            $_POST['pb_wporg_project_supervisor']
+            sanitize_text_field($_POST['pb_wporg_project_supervisor'])
         );
     }
 
