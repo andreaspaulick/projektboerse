@@ -13,11 +13,11 @@ define( 'DEFAULT_API_URL' , 'https://gpdev.archi-lab.io/' ); // default link to 
 define( 'DEFAULT_KEYCLOAK_API_URL' , 'https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/token' ); // default link to the keycloak API here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
 
 include 'redirect.php';
-include 'data/pb_options.php';
-include 'data/pb_auth.php';
-include 'data/pb_sync.php';
-include 'data/pb_helpers.php';
-include 'data/pb_metabox.php';
+include 'includes/pb_options.php';
+include 'includes/pb_auth.php';
+include 'includes/pb_sync.php';
+include 'includes/pb_helpers.php';
+include 'includes/pb_metabox.php';
 
 /**
  * Main Function to do something (in this case: send projects via REST request) in case a project is published
@@ -42,7 +42,7 @@ function post_published_api_call( $ID, $post) {
         else
             $sup_name = get_option('pb_add_supervisor')['pb_add_supervisor_field'];
 
-        // data for Testserver Projektbörse --> https://gpdev.archi-lab.io/projects
+        // includes for Testserver Projektbörse --> https://gpdev.archi-lab.io/projects
         $post_data = array(
             // TODO creatorID ermitteln!
             'creatorID' => '1b29e41e-aab2-4757-8ea2-7e2daca207e6',
@@ -160,7 +160,7 @@ function hide_publish_button() {
 }
 
 /**
- * Init some important globals for data exchange:
+ * Init some important globals for includes exchange:
  * - access token
  * - redirect uri
  * - keycloak username

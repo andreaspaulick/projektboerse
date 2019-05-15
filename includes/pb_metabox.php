@@ -19,7 +19,7 @@ add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 
 // TODO edit to fit PROX
 /**
- * HTML input fields for post metadata. Loads the last saved data!
+ * HTML input fields for post metadata. Loads the last saved includes!
  */
 function pb_custom_box_html($post)
 {
@@ -97,7 +97,7 @@ function pb_custom_box_html($post)
 
 // TODO edit to fit PROX
 /**
- * Save the pb-metabox data into unique meta keys
+ * Save the pb-metabox includes into unique meta keys
  */
 function pb_wporg_save_postdata($post_id)
 {
