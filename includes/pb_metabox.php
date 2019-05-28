@@ -92,9 +92,6 @@ function pb_custom_box_html($post)
                 else {
                     echo "<input type='checkbox' name='studyModules[]' id='{$value2['id']}' value='{$value2['id']}' > ";
                 }
-
-
-                //(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules') && in_array($value2['id'], get_post_meta($post->ID, '_pb_wporg_meta_studyModules', true))) ? 'checked' : ''
                 echo "<label for='".$value2['id']."'>".$value2['name']."&nbsp;&nbsp;&nbsp;&nbsp;</label>";
             }
             echo "</i>";
@@ -115,14 +112,11 @@ function pb_wporg_save_postdata($post_id)
 
     //study course modules list
     if (array_key_exists('studyModules', $_POST)) {
-        //my_log_file($_POST['studyModules']);
-
         update_post_meta(
             $post_id,
             '_pb_wporg_meta_studyModules',
             $_POST['studyModules']
         );
-        //my_log_file(get_post_meta($post_id, '_pb_wporg_meta_studyModules', true));
     }
 
 

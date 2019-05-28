@@ -78,7 +78,7 @@ function post_published_api_call( $ID, $post) {
                 'method' => 'PUT'
             ));
 
-            // update module list on current project
+            // update module list of current project in prox
             if(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules')){
                 $modules_url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/projectModules/' ;
 
@@ -129,7 +129,7 @@ function post_published_api_call( $ID, $post) {
             // save the id of the pb-project
             update_post_meta( $post->ID, 'pb_project_id', json_decode(wp_remote_retrieve_body($data))->id);
 
-            // save module list on current project
+            // save module list of current project in prox
             if(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules')){
                 $modules_url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/projectModules/' ;
 
