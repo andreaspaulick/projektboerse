@@ -78,6 +78,23 @@ function post_published_api_call( $ID, $post) {
                 'method' => 'PUT'
             ));
 
+            // update module list on current project
+            if(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules')){
+                $modules_url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/projectModules/' ;
+
+                $text_string = "";
+
+                foreach (get_post_meta($post->ID, '_pb_wporg_meta_studyModules', true) as $value) {
+                    $text_string = $text_string.$modules_url.$value."\n";
+                }
+                $putModulesData = wp_remote_request($url2."/modules/", array(
+                    'headers' => array( 'Content-Type' => 'text/uri-list',
+                        'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token']),
+                    'body'          => $text_string,
+                    'method' => 'PUT'
+                ));
+            }
+
             // save the "modified" date for future comparison
             $modified = json_decode(wp_remote_retrieve_body(
                 wp_remote_get($url2,
@@ -111,6 +128,23 @@ function post_published_api_call( $ID, $post) {
 
             // save the id of the pb-project
             update_post_meta( $post->ID, 'pb_project_id', json_decode(wp_remote_retrieve_body($data))->id);
+
+            // save module list on current project
+            if(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules')){
+                $modules_url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/projectModules/' ;
+
+                $text_string = "";
+
+                foreach (get_post_meta($post->ID, '_pb_wporg_meta_studyModules', true) as $value) {
+                    $text_string = $text_string.$modules_url.$value."\n";
+                }
+                $putModulesData = wp_remote_request($url."/".get_post_meta($post->ID, 'pb_project_id', true)."/modules/", array(
+                        'headers' => array( 'Content-Type' => 'text/uri-list',
+                            'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token']),
+                        'body'          => $text_string,
+                        'method' => 'PUT'
+                    ));
+            }
         }
 }
 add_action( 'publish_projects', 'post_published_api_call', 10, 2);

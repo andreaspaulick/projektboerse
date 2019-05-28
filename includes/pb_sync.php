@@ -169,8 +169,7 @@ function pb_import_pb_projects_step2 (){
             'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))), true)['modified'];
 
         // import project in wordpress if it's not here
-        // TODO make creatorName dynamic
-        if ($key['creatorName'] === 'Prof. Dozent' && empty($posts_array) && in_array($key['id'], $projects_to_import) && !empty($projects)) {  // only import if it's the users post AND if the post (the pb-project-id) is not already there
+        if ($key['creatorName'] === $GLOBALS['prox_username'] && empty($posts_array) && in_array($key['id'], $projects_to_import) && !empty($projects)) {  // only import if it's the users post AND if the post (the pb-project-id) is not already there
             $imported_project = array(
                 'post_type' => 'projects',
                 'post_title' => $key['name'],
@@ -187,6 +186,17 @@ function pb_import_pb_projects_step2 (){
             update_post_meta($post_id, '_pb_wporg_meta_checkbox', 1);
             update_post_meta($post_id, '_pb_wporg_meta_supervisor', $key['supervisorName']);
             update_post_meta($post_id, 'pb_project_modified', $key['modified']);
+
+            // get a list of modules associated with the project and save it as a metakey
+            $project_modules = json_decode(wp_remote_retrieve_body(wp_remote_get($url."/".$key['id']."/modules", array('headers' => array(
+                'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))), true)['_embedded']['projectModules'];
+
+            $temp_array = array();
+            foreach ($project_modules as $value) {
+                array_push($temp_array, $value['id']);
+            }
+            update_post_meta($post_id, '_pb_wporg_meta_studyModules', $temp_array);
+
         }
         // validating the view: if the project is already in wordpress,
         // we need to check every post for changes on the server side
@@ -213,6 +223,16 @@ function pb_import_pb_projects_step2 (){
             update_post_meta($post_id, '_pb_wporg_meta_checkbox', 1);
             update_post_meta($post_id, '_pb_wporg_meta_supervisor', $key['supervisorName']);
             update_post_meta($post_id, 'pb_project_modified', $key['modified']);
+
+            // get a list of modules associated with the project and save it as a metakey
+            $project_modules = json_decode(wp_remote_retrieve_body(wp_remote_get($url."/".$key['id']."/modules", array('headers' => array(
+                'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))), true)['_embedded']['projectModules'];
+
+            $temp_array = array();
+            foreach ($project_modules as $value) {
+                array_push($temp_array, $value['id']);
+            }
+            update_post_meta($post_id, '_pb_wporg_meta_studyModules', $temp_array);
         }
     }
     echo 'Projekte importiert: ' . $count;

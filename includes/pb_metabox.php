@@ -68,7 +68,7 @@ function pb_custom_box_html($post)
     </p>
     <p>
         <label for="pb_wporg_project_supervisor"><strong>Name des Projektbetreuers:</strong><br /></label>
-        <input type="text" name="pb_wporg_project_supervisor" id="pb_wporg_project_supervisor" value="<?php echo $supervisor?>" >
+        <input type="text" name="pb_wporg_project_supervisor" id="pb_wporg_project_supervisor" value="<?php echo esc_attr($supervisor)?>" >
     </p>
     <!--    ------------- study courses and attached modules -------->
     <p>
@@ -79,12 +79,23 @@ function pb_custom_box_html($post)
             return;
         }
 
-        foreach ($study_courses as $key) {
-            $modules = pb_get_studyCoursesModules($key['_links']['modules']['href']);
-            echo "<i><p><b>".$key['name']." (".$key['academicDegree'].")</b></p>";
-            foreach ($modules as $key2) {
-                echo "<input type='checkbox' id='".$key2['id']."' name='studyModules[]' value='".$key2['id']."'>  ";
-                echo "<label for='".$key2['id']."'>".$key2['name']."&nbsp;&nbsp;&nbsp;&nbsp;</label>";
+        foreach ($study_courses as $value) {
+            $modules = pb_get_studyCoursesModules($value['_links']['modules']['href']);
+
+            echo "<i><p><b>".$value['name']." (".$value['academicDegree'].")</b></p>";
+            foreach ($modules as $key2 => $value2) {
+
+
+                if(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules')){
+                    echo "<input type='checkbox' name='studyModules[]' id='{$value2['id']}' value='{$value2['id']}' ".( in_array($value2['id'], get_post_meta($post->ID, '_pb_wporg_meta_studyModules', true)) ? 'checked' : '')." > ";
+                }
+                else {
+                    echo "<input type='checkbox' name='studyModules[]' id='{$value2['id']}' value='{$value2['id']}' > ";
+                }
+
+
+                //(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules') && in_array($value2['id'], get_post_meta($post->ID, '_pb_wporg_meta_studyModules', true))) ? 'checked' : ''
+                echo "<label for='".$value2['id']."'>".$value2['name']."&nbsp;&nbsp;&nbsp;&nbsp;</label>";
             }
             echo "</i>";
 
@@ -101,6 +112,21 @@ function pb_custom_box_html($post)
  */
 function pb_wporg_save_postdata($post_id)
 {
+
+    //study course modules list
+    if (array_key_exists('studyModules', $_POST)) {
+        //my_log_file($_POST['studyModules']);
+
+        update_post_meta(
+            $post_id,
+            '_pb_wporg_meta_studyModules',
+            $_POST['studyModules']
+        );
+        //my_log_file(get_post_meta($post_id, '_pb_wporg_meta_studyModules', true));
+    }
+
+
+
     // checkbox
     $checkbox_value = ( isset( $_POST['checkbox_value'] ) && '1' === $_POST['checkbox_value'] ) ? 1 : 0; // Input var okay.
     update_post_meta( $post_id, '_pb_wporg_meta_checkbox', esc_attr( $checkbox_value ) );

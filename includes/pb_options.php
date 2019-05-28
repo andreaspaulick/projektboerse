@@ -1,5 +1,4 @@
 <?php
-$GLOBALS['disabled'] = "";
 
 function pb_options_page_html($post_data){
     // check user capabilities
