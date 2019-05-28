@@ -10,7 +10,7 @@
 
 defined( 'ABSPATH' ) or exit;
 define( 'DEFAULT_API_URL' , 'https://gpdev.archi-lab.io/' ); // default link to the PB API
-define( 'DEFAULT_KEYCLOAK_API_URL' , 'https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/token' ); // default link to the keycloak API here you can choose whether to use the local "pb dummy" or the official test version of the PB via internet
+define( 'DEFAULT_KEYCLOAK_API_URL' , 'https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/token' ); // default link to the keycloak token endpoint
 
 include 'redirect.php';
 include 'includes/pb_options.php';
