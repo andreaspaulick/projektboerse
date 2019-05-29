@@ -55,10 +55,10 @@ function post_published_api_call( $ID, $post) {
 
         $json_post = json_encode($post_data);
 
-        // get the project-id of the pb-post (if set)
-        $pb_project_id = get_post_meta($post->ID, 'pb_project_id', true);
-
         if( metadata_exists( 'post', $post->ID, 'pb_project_id' )){ // means the project is edited
+
+            // get the project-id of the pb-post (if set)
+            $pb_project_id = get_post_meta($post->ID, 'pb_project_id', true);
 
             $url2 = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/').'/projects/'.$pb_project_id ;
 
@@ -67,7 +67,6 @@ function post_published_api_call( $ID, $post) {
                     'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token']),
                 'body'          => json_encode( array(
                     'id'            => $pb_project_id,
-                    // TODO creatorID ermitteln!
                     'creatorID' => '1b29e41e-aab2-4757-8ea2-7e2daca207e6',
                     'creatorName' => $GLOBALS['prox_username'],
                     'description' => $content,
@@ -125,7 +124,6 @@ function post_published_api_call( $ID, $post) {
             ), true)['modified'];
             update_post_meta( $post->ID, 'pb_project_modified', $modified);
 
-
             // save the id of the pb-project
             update_post_meta( $post->ID, 'pb_project_id', json_decode(wp_remote_retrieve_body($data))->id);
 
@@ -153,6 +151,8 @@ add_action( 'publish_projects', 'post_published_api_call', 10, 2);
 /**
  * If the user checked the corresponding setting, not only WordPress projects are deleted,
  * but also the corresponding entry in Prox via REST API
+ *
+ * @param $postid - the ID of the currently viewed project-post
  */
 function pb_sync_delete_post($postid){
     global $post_type;
@@ -269,11 +269,12 @@ add_action( 'init', 'wpt_project_post_type');
 
 /**
  * Add a [sc_pb_meta] shortcode at the end of every project-type-post
+ *
+ * @param $content - the content of a project-post
+ * @return string - the new content with the added shortcode (and the post creation date+time if set)
  */
-add_filter('the_content', 'modify_content');
 function modify_content($content) {
     global $post;
-    //TODO make a setting out of "is_archive"
     if($post->post_type === 'projects' && !is_archive())
         if(isset(get_option('pb_add_datetime')['pb_add_datetime_field'])) {
             return $content . "[sc_pb_meta]"."[sc_pb_meta_dateandtime]" ;
@@ -283,10 +284,12 @@ function modify_content($content) {
     else
         return $content;
 }
+add_filter('the_content', 'modify_content');
 
-// TODO alter this function to fit PROX
 /**
  * defines what the shortcode should display
+ *
+ * @return string - the HTML string which visualizes the metadata beneath every project-post
  */
 function sc_pb_meta_function(){
     global $post;
@@ -297,6 +300,7 @@ function sc_pb_meta_function(){
     elseif ($project_status === 'LAUFEND') $project_status = 'laufend';
     elseif ($project_status === 'ABGESCHLOSSEN') $project_status = 'abgeschlossen';
 
+    // TODO show supervisor and project modules
     $shortcode_meta = "<span style=\"font-size: 12px;\" > 
                             <table style=\"width:100%\">
                                   <tr>

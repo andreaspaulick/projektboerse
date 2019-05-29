@@ -21,17 +21,53 @@ function sc_pb_meta_dateandtime(){
 add_shortcode('sc_pb_meta_dateandtime', 'sc_pb_meta_dateandtime');
 
 /**
- * Create a random string
- * @param int $length
- * @return random String
+ * Return a list of all prox-projects
+ *
+ * @return mixed - returns an array of ALL projects in prox
  */
-function generateRandomString($length = 50) {
-    return hash('sha512', substr(str_shuffle(str_repeat($x='0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', ceil($length/strlen($x)) )),1,$length));
+function pb_get_projects() {
+
+    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projects'; // add json-consuming ressource to url. Strip last slash if present
+
+    $request = wp_remote_get($url, array('headers' => array('Content-Type' => 'application/json; charset=utf-8',
+        'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])));
+
+    if (is_wp_error($request) || wp_remote_retrieve_response_code( $request ) === 404){
+        echo 'FEHLER: konnte keine Verbindung zur Projektbörse aufbauen.';
+        exit;
+    }
+
+    $request_body = wp_remote_retrieve_body($request);
+
+    return  json_decode($request_body, true)['_embedded']['projects'];
+}
+
+/**
+ * Generates an array of study courses
+ *
+ * @return string - array of study courses
+ */
+function pb_get_studyCourses() {
+    $url = rtrim(get_option('pb_api_url', array('pb_api_url' => DEFAULT_API_URL))['pb_url'], '/') . '/projectStudyCourses';
+    $response = wp_remote_get($url);
+    if(is_wp_error($response) || wp_remote_retrieve_response_code( $response ) === 404) return "API nicht erreichbar";
+    else return json_decode($response['body'], TRUE)['_embedded']['projectStudyCourses'];
+}
+
+/**
+ * Generates an array of modules for a certain project
+ *
+ * @param $url - the URL to the Prox modules endpoint of every project -> ../projects/{project-id}/modules/
+ * @return mixed - array of all modules for that project
+ */
+function pb_get_studyCoursesModules($url) {
+    $response = wp_remote_get($url);
+    return json_decode($response['body'], TRUE)['_embedded']['projectModules'];
 }
 
 /**
  * Log to File
- * Description: Log into system php error log, usefull for Ajax and stuff that FirePHP doesn't catch
+ * Description: Log into system php error log, useful for Ajax and stuff that FirePHP doesn't catch
  */
 function my_log_file( $msg, $name = '' )
 {

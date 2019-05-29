@@ -16,10 +16,10 @@ function pb_wporg_add_custom_box()
 }
 add_action('add_meta_boxes', 'pb_wporg_add_custom_box');
 
-
-// TODO edit to fit PROX
 /**
  * HTML input fields for post metadata. Loads the last saved includes!
+ *
+ * @param $post - variable which provides information about the current project-post (such as its ID)
  */
 function pb_custom_box_html($post)
 {
@@ -103,9 +103,10 @@ function pb_custom_box_html($post)
     <?php
 }
 
-// TODO edit to fit PROX
 /**
  * Save the pb-metabox includes into unique meta keys
+ *
+ * @param $post_id - the ID of the currently viewed post
  */
 function pb_wporg_save_postdata($post_id)
 {
@@ -145,4 +146,4 @@ function pb_wporg_save_postdata($post_id)
     }
 
 }
-add_action('publish_projects', 'pb_wporg_save_postdata', 9);
+add_action('publish_projects', 'pb_wporg_save_postdata', 5);
