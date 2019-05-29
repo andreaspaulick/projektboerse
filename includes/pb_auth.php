@@ -6,7 +6,7 @@
  * code 200, then the user is logged in.
  */
 function pb_keycloak_is_authenticated() {
-    $response = wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
+    $response = wp_remote_get(KEYCLOAK_USERINFO_PATH, array('headers' => array(
         'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])));
     $response_code = wp_remote_retrieve_response_code( $response );
     if ($response_code === 200) {

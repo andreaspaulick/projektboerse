@@ -11,6 +11,7 @@
 defined( 'ABSPATH' ) or exit;
 define( 'DEFAULT_API_URL' , 'https://gpdev.archi-lab.io/' ); // default link to the PB API
 define( 'DEFAULT_KEYCLOAK_API_URL' , 'https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/token' ); // default link to the keycloak token endpoint
+define( 'KEYCLOAK_USERINFO_PATH', dirname(get_option('token_api_url')['token_url'])."/userinfo"); // get userinfo endpoint from provided token URL
 
 include 'redirect.php';
 include 'includes/pb_options.php';
@@ -215,9 +216,9 @@ function pb_init_values() {
     $_SESSION['pb_plugins_url'] = plugins_url('/projektboerse/redirect.php');
 
     // get the name of the currently logged-in keycloak user
-    if(!isset($GLOBALS['prox_username']) && wp_remote_retrieve_response_code(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
+    if(!isset($GLOBALS['prox_username']) && wp_remote_retrieve_response_code(wp_remote_get(KEYCLOAK_USERINFO_PATH, array('headers' => array(
             'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))) === 200){
-        $GLOBALS['prox_username'] = json_decode(wp_remote_retrieve_body(wp_remote_get('https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/userinfo', array('headers' => array(
+        $GLOBALS['prox_username'] = json_decode(wp_remote_retrieve_body(wp_remote_get(KEYCLOAK_USERINFO_PATH, array('headers' => array(
             'Authorization' => 'Bearer ' . $GLOBALS['pb_access_token'])))), true)['name'];
     }
     else
