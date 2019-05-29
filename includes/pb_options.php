@@ -19,7 +19,7 @@ function pb_options_page_html($post_data){
             }
         </script>
 
-        <br /><form action="https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth" method="post" onsubmit="get_token446t4(this)">
+        <br /><form action="<?php echo dirname(get_option('token_api_url')['token_url']) ?>/auth" method="post" onsubmit="get_token446t4(this)">
             <input type="hidden" name="client_id" value="wordpress-plugin" />
             <input type="hidden" name="redirect_uri" value="<?php echo plugins_url('/projektboerse/redirect.php');?>" />
             <input type="hidden" name="response_type" value="code" />

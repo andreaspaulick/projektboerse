@@ -50,7 +50,7 @@ function pb_custom_box_html($post)
             echo "<b><a style=\"color:green\"> <br />Authentifiziert &check;</a></b>";
         }
         else {
-            echo "<b><text style=\"color:red\"> <br />&cross; Keine Synchronisierung mit Prox möglich: es können keine Projekte veröffentlicht werden. Bitte vorher <a href='https://login.coalbase.io/auth/realms/prox/protocol/openid-connect/auth?client_id=wordpress-plugin&redirect_uri=".plugins_url('/projektboerse/redirect.php')."&response_type=code&scope=openid&state=E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT' target='_blank'>einloggen</a>!</text></b>";
+            echo "<b><text style=\"color:red\"> <br />&cross; Keine Synchronisierung mit Prox möglich: es können keine Projekte veröffentlicht werden. Bitte vorher <a href='".dirname(get_option('token_api_url')['token_url'])."/auth?client_id=wordpress-plugin&redirect_uri=".plugins_url('/projektboerse/redirect.php')."&response_type=code&scope=openid&state=E9QcyBYe7kVaxjgXOrdwRevUDABhUHMlVIT8fzzd8FYx5EBALT' target='_blank'>einloggen</a>!</text></b>";
         }
         ?>
     </p>
