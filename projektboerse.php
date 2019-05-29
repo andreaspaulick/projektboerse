@@ -301,15 +301,45 @@ function sc_pb_meta_function(){
     elseif ($project_status === 'LAUFEND') $project_status = 'laufend';
     elseif ($project_status === 'ABGESCHLOSSEN') $project_status = 'abgeschlossen';
 
-    // TODO show supervisor and project modules
+    $study_courses = pb_get_studyCourses();
+    $modules_string = "";
+
+    // add modules to shortcode
+    if(!is_array($study_courses)) {
+        echo "[ " . $study_courses . " ]";
+        return;
+    }
+
+    foreach ($study_courses as $value) {
+        $modules = pb_get_studyCoursesModules($value['_links']['modules']['href']);
+
+        $flag = true;
+
+        foreach ($modules as $value2) {
+            if($flag === true && in_array($value2['id'],get_post_meta($post->ID, '_pb_wporg_meta_studyModules', true))) {
+                $modules_string = $modules_string."<br /><i><b>".$value['name']." (".$value['academicDegree'].")<br /></b>";
+                $flag = false;
+            }
+
+            if(metadata_exists('post', $post->ID, '_pb_wporg_meta_studyModules') && in_array($value2['id'],get_post_meta($post->ID, '_pb_wporg_meta_studyModules', true))){
+                $modules_string = $modules_string.$value2['name']."<br />";
+            }
+        }
+        $modules_string = $modules_string."</i>";
+    }
+    // ----- end "add modules to shortcode" ------
+
     $shortcode_meta = "<span style=\"font-size: 12px;\" > 
                             <table style=\"width:100%\">
                                   <tr>
                                     <th>Projektstatus</th>
+                                    <th>Projektbetreuer</th>
+                                    <th>Module</th>
                                   </tr>
                                   <tr>
-                                    <td>".$project_status."</td>
-
+                                    <td style='vertical-align: top;'>".$project_status."</td>
+                                    <td style='vertical-align: top;'>".get_option('pb_add_supervisor')['pb_add_supervisor_field']."</td>
+                                    <td>".$modules_string."</td>
                                   </tr>
                             </table>
                        </span>";
