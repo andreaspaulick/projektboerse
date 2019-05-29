@@ -16,7 +16,7 @@ function array_column_recursive(array $haystack, $needle) {
  */
 function sc_pb_meta_dateandtime(){
     global $post;
-    return "<span style='font-size: 10px;'> <i>Projekt erstellt am: ".get_the_date("d. F Y, H:i", $post->ID)." Uhr</i></span>";
+    return "<span style='font-size: 10px;'> <i>Projekt erstellt am: ".get_the_date("d.m.Y, H:i", $post->ID)." Uhr</i></span>";
 }
 add_shortcode('sc_pb_meta_dateandtime', 'sc_pb_meta_dateandtime');
 
